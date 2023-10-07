@@ -1,0 +1,14 @@
+{
+  "name": "contract",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "compile": "near-sdk-js build airdrops.ts build/airdrops.wasm"
+  },
+  "dependencies": {
+    "near-sdk-js": "^1.0.0",
+    "typescript": "^5.2.2"
+  }
+}

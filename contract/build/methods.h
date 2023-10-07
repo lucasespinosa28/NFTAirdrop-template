@@ -1,0 +1,6 @@
+DEFINE_NEAR_METHOD(get_balance)
+DEFINE_NEAR_METHOD(init)
+DEFINE_NEAR_METHOD(query_balance)
+DEFINE_NEAR_METHOD(query_balance_callback)
+DEFINE_NEAR_METHOD(transfer_tokens)
+DEFINE_NEAR_METHOD(transfer_tokens_callback)
