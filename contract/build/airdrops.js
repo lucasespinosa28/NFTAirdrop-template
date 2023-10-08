@@ -33,6 +33,8 @@ var TypeBrand;
   TypeBrand["BIGINT"] = "bigint";
   TypeBrand["DATE"] = "date";
 })(TypeBrand || (TypeBrand = {}));
+const ERR_INCONSISTENT_STATE = "The collection is an inconsistent state. Did previous smart contract execution terminate unexpectedly?";
+const ERR_INDEX_OUT_OF_BOUNDS = "Index out of bounds";
 /**
  * Asserts that the expression passed to the function is truthy, otherwise throws a new Error with the provided message.
  *
@@ -43,6 +45,28 @@ function assert(expression, message) {
   if (!expression) {
     throw new Error("assertion failed: " + message);
   }
+}
+function getValueWithOptions(value, options = {
+  deserializer: deserialize
+}) {
+  if (value === null) {
+    return options?.defaultValue ?? null;
+  }
+  const deserialized = deserialize(value);
+  if (deserialized === undefined || deserialized === null) {
+    return options?.defaultValue ?? null;
+  }
+  if (options?.reconstructor) {
+    return options.reconstructor(deserialized);
+  }
+  return deserialized;
+}
+function serializeValueWithOptions(value, {
+  serializer
+} = {
+  serializer: serialize
+}) {
+  return serializer(value);
 }
 function serialize(valueToSerialize) {
   return encode(JSON.stringify(valueToSerialize, function (key, value) {
@@ -159,6 +183,14 @@ function log(...params) {
   }, ""));
 }
 /**
+ * Returns the account ID of the account that signed the transaction.
+ * Can only be called in a call or initialize function.
+ */
+function signerAccountId() {
+  env.signer_account_id(0);
+  return str(env.read_register(0));
+}
+/**
  * Returns the account ID of the account that called the function.
  * Can only be called in a call or initialize function.
  */
@@ -172,6 +204,12 @@ function predecessorAccountId() {
 function currentAccountId() {
   env.current_account_id(0);
   return str(env.read_register(0));
+}
+/**
+ * Returns the current block timestamp.
+ */
+function blockTimestamp() {
+  return env.block_timestamp();
 }
 /**
  * Returns the amount of NEAR attached to this function call.
@@ -193,6 +231,28 @@ function storageReadRaw(key) {
   return env.read_register(0);
 }
 /**
+ * Checks for the existance of a value under the provided key in NEAR storage.
+ *
+ * @param key - The key to check for in storage.
+ */
+function storageHasKeyRaw(key) {
+  return env.storage_has_key(key) === 1n;
+}
+/**
+ * Checks for the existance of a value under the provided utf-8 string key in NEAR storage.
+ *
+ * @param key - The utf-8 string key to check for in storage.
+ */
+function storageHasKey(key) {
+  return storageHasKeyRaw(encode(key));
+}
+/**
+ * Get the last written or removed value from NEAR storage.
+ */
+function storageGetEvictedRaw() {
+  return env.read_register(EVICTED_REGISTER);
+}
+/**
  * Writes the provided bytes to NEAR storage under the provided key.
  *
  * @param key - The key under which to store the value.
@@ -200,6 +260,22 @@ function storageReadRaw(key) {
  */
 function storageWriteRaw(key, value) {
   return env.storage_write(key, value, EVICTED_REGISTER) === 1n;
+}
+/**
+ * Removes the value of the provided key from NEAR storage.
+ *
+ * @param key - The key to be removed.
+ */
+function storageRemoveRaw(key) {
+  return env.storage_remove(key, EVICTED_REGISTER) === 1n;
+}
+/**
+ * Removes the value of the provided utf-8 string key from NEAR storage.
+ *
+ * @param key - The utf-8 string key to be removed.
+ */
+function storageRemove(key) {
+  return storageRemoveRaw(encode(key));
 }
 /**
  * Returns the arguments passed to the current smart contract call.
@@ -391,6 +467,483 @@ function promiseResult$1(promiseIndex) {
  */
 function promiseReturn(promiseIndex) {
   env.promise_return(promiseIndex);
+}
+
+/**
+ * A lookup map that stores data in NEAR storage.
+ */
+class LookupMap {
+  /**
+   * @param keyPrefix - The byte prefix to use when storing elements inside this collection.
+   */
+  constructor(keyPrefix) {
+    this.keyPrefix = keyPrefix;
+  }
+  /**
+   * Checks whether the collection contains the value.
+   *
+   * @param key - The value for which to check the presence.
+   */
+  containsKey(key) {
+    const storageKey = this.keyPrefix + key;
+    return storageHasKey(storageKey);
+  }
+  /**
+   * Get the data stored at the provided key.
+   *
+   * @param key - The key at which to look for the data.
+   * @param options - Options for retrieving the data.
+   */
+  get(key, options) {
+    const storageKey = this.keyPrefix + key;
+    const value = storageReadRaw(encode(storageKey));
+    return getValueWithOptions(value, options);
+  }
+  /**
+   * Removes and retrieves the element with the provided key.
+   *
+   * @param key - The key at which to remove data.
+   * @param options - Options for retrieving the data.
+   */
+  remove(key, options) {
+    const storageKey = this.keyPrefix + key;
+    if (!storageRemove(storageKey)) {
+      return options?.defaultValue ?? null;
+    }
+    const value = storageGetEvictedRaw();
+    return getValueWithOptions(value, options);
+  }
+  /**
+   * Store a new value at the provided key.
+   *
+   * @param key - The key at which to store in the collection.
+   * @param newValue - The value to store in the collection.
+   * @param options - Options for retrieving and storing the data.
+   */
+  set(key, newValue, options) {
+    const storageKey = this.keyPrefix + key;
+    const storageValue = serializeValueWithOptions(newValue, options);
+    if (!storageWriteRaw(encode(storageKey), storageValue)) {
+      return options?.defaultValue ?? null;
+    }
+    const value = storageGetEvictedRaw();
+    return getValueWithOptions(value, options);
+  }
+  /**
+   * Extends the current collection with the passed in array of key-value pairs.
+   *
+   * @param keyValuePairs - The key-value pairs to extend the collection with.
+   * @param options - Options for storing the data.
+   */
+  extend(keyValuePairs, options) {
+    for (const [key, value] of keyValuePairs) {
+      this.set(key, value, options);
+    }
+  }
+  /**
+   * Serialize the collection.
+   *
+   * @param options - Options for storing the data.
+   */
+  serialize(options) {
+    return serializeValueWithOptions(this, options);
+  }
+  /**
+   * Converts the deserialized data from storage to a JavaScript instance of the collection.
+   *
+   * @param data - The deserialized data to create an instance from.
+   */
+  static reconstruct(data) {
+    return new LookupMap(data.keyPrefix);
+  }
+}
+
+function indexToKey(prefix, index) {
+  const data = new Uint32Array([index]);
+  const array = new Uint8Array(data.buffer);
+  const key = str(array);
+  return prefix + key;
+}
+/**
+ * An iterable implementation of vector that stores its content on the trie.
+ * Uses the following map: index -> element
+ */
+class Vector {
+  /**
+   * @param prefix - The byte prefix to use when storing elements inside this collection.
+   * @param length - The initial length of the collection. By default 0.
+   */
+  constructor(prefix, length = 0) {
+    this.prefix = prefix;
+    this.length = length;
+  }
+  /**
+   * Checks whether the collection is empty.
+   */
+  isEmpty() {
+    return this.length === 0;
+  }
+  /**
+   * Get the data stored at the provided index.
+   *
+   * @param index - The index at which to look for the data.
+   * @param options - Options for retrieving the data.
+   */
+  get(index, options) {
+    if (index >= this.length) {
+      return options?.defaultValue ?? null;
+    }
+    const storageKey = indexToKey(this.prefix, index);
+    const value = storageReadRaw(bytes(storageKey));
+    return getValueWithOptions(value, options);
+  }
+  /**
+   * Removes an element from the vector and returns it in serialized form.
+   * The removed element is replaced by the last element of the vector.
+   * Does not preserve ordering, but is `O(1)`.
+   *
+   * @param index - The index at which to remove the element.
+   * @param options - Options for retrieving and storing the data.
+   */
+  swapRemove(index, options) {
+    assert(index < this.length, ERR_INDEX_OUT_OF_BOUNDS);
+    if (index + 1 === this.length) {
+      return this.pop(options);
+    }
+    const key = indexToKey(this.prefix, index);
+    const last = this.pop(options);
+    assert(storageWriteRaw(bytes(key), serializeValueWithOptions(last, options)), ERR_INCONSISTENT_STATE);
+    const value = storageGetEvictedRaw();
+    return getValueWithOptions(value, options);
+  }
+  /**
+   * Adds data to the collection.
+   *
+   * @param element - The data to store.
+   * @param options - Options for storing the data.
+   */
+  push(element, options) {
+    const key = indexToKey(this.prefix, this.length);
+    this.length += 1;
+    storageWriteRaw(bytes(key), serializeValueWithOptions(element, options));
+  }
+  /**
+   * Removes and retrieves the element with the highest index.
+   *
+   * @param options - Options for retrieving the data.
+   */
+  pop(options) {
+    if (this.isEmpty()) {
+      return options?.defaultValue ?? null;
+    }
+    const lastIndex = this.length - 1;
+    const lastKey = indexToKey(this.prefix, lastIndex);
+    this.length -= 1;
+    assert(storageRemoveRaw(bytes(lastKey)), ERR_INCONSISTENT_STATE);
+    const value = storageGetEvictedRaw();
+    return getValueWithOptions(value, options);
+  }
+  /**
+   * Replaces the data stored at the provided index with the provided data and returns the previously stored data.
+   *
+   * @param index - The index at which to replace the data.
+   * @param element - The data to replace with.
+   * @param options - Options for retrieving and storing the data.
+   */
+  replace(index, element, options) {
+    assert(index < this.length, ERR_INDEX_OUT_OF_BOUNDS);
+    const key = indexToKey(this.prefix, index);
+    assert(storageWriteRaw(bytes(key), serializeValueWithOptions(element, options)), ERR_INCONSISTENT_STATE);
+    const value = storageGetEvictedRaw();
+    return getValueWithOptions(value, options);
+  }
+  /**
+   * Extends the current collection with the passed in array of elements.
+   *
+   * @param elements - The elements to extend the collection with.
+   */
+  extend(elements) {
+    for (const element of elements) {
+      this.push(element);
+    }
+  }
+  [Symbol.iterator]() {
+    return new VectorIterator(this);
+  }
+  /**
+   * Create a iterator on top of the default collection iterator using custom options.
+   *
+   * @param options - Options for retrieving and storing the data.
+   */
+  createIteratorWithOptions(options) {
+    return {
+      [Symbol.iterator]: () => new VectorIterator(this, options)
+    };
+  }
+  /**
+   * Return a JavaScript array of the data stored within the collection.
+   *
+   * @param options - Options for retrieving and storing the data.
+   */
+  toArray(options) {
+    const array = [];
+    const iterator = options ? this.createIteratorWithOptions(options) : this;
+    for (const value of iterator) {
+      array.push(value);
+    }
+    return array;
+  }
+  /**
+   * Remove all of the elements stored within the collection.
+   */
+  clear() {
+    for (let index = 0; index < this.length; index++) {
+      const key = indexToKey(this.prefix, index);
+      storageRemoveRaw(bytes(key));
+    }
+    this.length = 0;
+  }
+  /**
+   * Serialize the collection.
+   *
+   * @param options - Options for storing the data.
+   */
+  serialize(options) {
+    return serializeValueWithOptions(this, options);
+  }
+  /**
+   * Converts the deserialized data from storage to a JavaScript instance of the collection.
+   *
+   * @param data - The deserialized data to create an instance from.
+   */
+  static reconstruct(data) {
+    const vector = new Vector(data.prefix, data.length);
+    return vector;
+  }
+}
+/**
+ * An iterator for the Vector collection.
+ */
+class VectorIterator {
+  /**
+   * @param vector - The vector collection to create an iterator for.
+   * @param options - Options for retrieving and storing data.
+   */
+  constructor(vector, options) {
+    this.vector = vector;
+    this.options = options;
+    this.current = 0;
+  }
+  next() {
+    if (this.current >= this.vector.length) {
+      return {
+        value: null,
+        done: true
+      };
+    }
+    const value = this.vector.get(this.current, this.options);
+    this.current += 1;
+    return {
+      value,
+      done: false
+    };
+  }
+}
+
+/**
+ * An unordered map that stores data in NEAR storage.
+ */
+class UnorderedMap {
+  /**
+   * @param prefix - The byte prefix to use when storing elements inside this collection.
+   */
+  constructor(prefix) {
+    this.prefix = prefix;
+    this._keys = new Vector(`${prefix}u`); // intentional different prefix with old UnorderedMap
+    this.values = new LookupMap(`${prefix}m`);
+  }
+  /**
+   * The number of elements stored in the collection.
+   */
+  get length() {
+    return this._keys.length;
+  }
+  /**
+   * Checks whether the collection is empty.
+   */
+  isEmpty() {
+    return this._keys.isEmpty();
+  }
+  /**
+   * Get the data stored at the provided key.
+   *
+   * @param key - The key at which to look for the data.
+   * @param options - Options for retrieving the data.
+   */
+  get(key, options) {
+    const valueAndIndex = this.values.get(key);
+    if (valueAndIndex === null) {
+      return options?.defaultValue ?? null;
+    }
+    const [value] = valueAndIndex;
+    return getValueWithOptions(encode(value), options);
+  }
+  /**
+   * Store a new value at the provided key.
+   *
+   * @param key - The key at which to store in the collection.
+   * @param value - The value to store in the collection.
+   * @param options - Options for retrieving and storing the data.
+   */
+  set(key, value, options) {
+    const valueAndIndex = this.values.get(key);
+    const serialized = serializeValueWithOptions(value, options);
+    if (valueAndIndex === null) {
+      const newElementIndex = this.length;
+      this._keys.push(key);
+      this.values.set(key, [decode(serialized), newElementIndex]);
+      return null;
+    }
+    const [oldValue, oldIndex] = valueAndIndex;
+    this.values.set(key, [decode(serialized), oldIndex]);
+    return getValueWithOptions(encode(oldValue), options);
+  }
+  /**
+   * Removes and retrieves the element with the provided key.
+   *
+   * @param key - The key at which to remove data.
+   * @param options - Options for retrieving the data.
+   */
+  remove(key, options) {
+    const oldValueAndIndex = this.values.remove(key);
+    if (oldValueAndIndex === null) {
+      return options?.defaultValue ?? null;
+    }
+    const [value, index] = oldValueAndIndex;
+    assert(this._keys.swapRemove(index) !== null, ERR_INCONSISTENT_STATE);
+    // the last key is swapped to key[index], the corresponding [value, index] need update
+    if (!this._keys.isEmpty() && index !== this._keys.length) {
+      // if there is still elements and it was not the last element
+      const swappedKey = this._keys.get(index);
+      const swappedValueAndIndex = this.values.get(swappedKey);
+      assert(swappedValueAndIndex !== null, ERR_INCONSISTENT_STATE);
+      this.values.set(swappedKey, [swappedValueAndIndex[0], index]);
+    }
+    return getValueWithOptions(encode(value), options);
+  }
+  /**
+   * Remove all of the elements stored within the collection.
+   */
+  clear() {
+    for (const key of this._keys) {
+      // Set instead of remove to avoid loading the value from storage.
+      this.values.set(key, null);
+    }
+    this._keys.clear();
+  }
+  [Symbol.iterator]() {
+    return new UnorderedMapIterator(this);
+  }
+  /**
+   * Create a iterator on top of the default collection iterator using custom options.
+   *
+   * @param options - Options for retrieving and storing the data.
+   */
+  createIteratorWithOptions(options) {
+    return {
+      [Symbol.iterator]: () => new UnorderedMapIterator(this, options)
+    };
+  }
+  /**
+   * Return a JavaScript array of the data stored within the collection.
+   *
+   * @param options - Options for retrieving and storing the data.
+   */
+  toArray(options) {
+    const array = [];
+    const iterator = options ? this.createIteratorWithOptions(options) : this;
+    for (const value of iterator) {
+      array.push(value);
+    }
+    return array;
+  }
+  /**
+   * Extends the current collection with the passed in array of key-value pairs.
+   *
+   * @param keyValuePairs - The key-value pairs to extend the collection with.
+   */
+  extend(keyValuePairs) {
+    for (const [key, value] of keyValuePairs) {
+      this.set(key, value);
+    }
+  }
+  /**
+   * Serialize the collection.
+   *
+   * @param options - Options for storing the data.
+   */
+  serialize(options) {
+    return serializeValueWithOptions(this, options);
+  }
+  /**
+   * Converts the deserialized data from storage to a JavaScript instance of the collection.
+   *
+   * @param data - The deserialized data to create an instance from.
+   */
+  static reconstruct(data) {
+    const map = new UnorderedMap(data.prefix);
+    // reconstruct keys Vector
+    map._keys = new Vector(`${data.prefix}u`);
+    map._keys.length = data._keys.length;
+    // reconstruct values LookupMap
+    map.values = new LookupMap(`${data.prefix}m`);
+    return map;
+  }
+  keys({
+    start,
+    limit
+  }) {
+    const ret = [];
+    if (start === undefined) {
+      start = 0;
+    }
+    if (limit == undefined) {
+      limit = this.length - start;
+    }
+    for (let i = start; i < start + limit; i++) {
+      ret.push(this._keys.get(i));
+    }
+    return ret;
+  }
+}
+/**
+ * An iterator for the UnorderedMap collection.
+ */
+class UnorderedMapIterator {
+  /**
+   * @param unorderedMap - The unordered map collection to create an iterator for.
+   * @param options - Options for retrieving and storing data.
+   */
+  constructor(unorderedMap, options) {
+    this.options = options;
+    this.keys = new VectorIterator(unorderedMap._keys);
+    this.map = unorderedMap.values;
+  }
+  next() {
+    const key = this.keys.next();
+    if (key.done) {
+      return {
+        value: [key.value, null],
+        done: key.done
+      };
+    }
+    const valueAndIndex = this.map.get(key.value);
+    assert(valueAndIndex !== null, ERR_INCONSISTENT_STATE);
+    return {
+      done: key.done,
+      value: [key.value, getValueWithOptions(encode(valueAndIndex[0]), this.options)]
+    };
+  }
 }
 
 /**
@@ -962,32 +1515,129 @@ class NearPromise {
   }
 }
 
-var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _class, _class2;
+var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _class, _class2;
+// assert(near.blockTimestamp === token.owner_id, "Predecessor must be the token owner");
+
 const FIVE_TGAS = BigInt("50000000000000");
 const NO_DEPOSIT = BigInt(0);
 const NO_ARGS = JSON.stringify({});
 const GAS_FOR_NFT_TRANSFER = 15_000_000_000_000;
-let airdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = view(), _dec4 = call({
-  payableFunction: true
-}), _dec5 = call({
+let airdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = call({}), _dec4 = call({
   privateFunction: true
-}), _dec6 = call({}), _dec7 = call({
+}), _dec5 = view(), _dec6 = call({}), _dec7 = view(), _dec8 = view(), _dec9 = call({
+  payableFunction: true
+}), _dec10 = call({
+  payableFunction: true
+}), _dec11 = call({
+  privateFunction: true
+}), _dec12 = call({}), _dec13 = call({
+  privateFunction: true
+}), _dec14 = call({}), _dec15 = call({
   privateFunction: true
 }), _dec(_class = (_class2 = class airdropContract {
-  tokenAddress = "hello-nearverse.testnet";
+  controller = new UnorderedMap('controller-map');
+  tokenAddress = "";
+  nftAddress = "";
   balance = "0";
+  from = 0;
+  reward = "";
+  limit = 1n;
+  rewarded = 0n;
+  startAt = blockTimestamp();
+  endAt = blockTimestamp();
+  blockList = new Vector('banned-nfts');
+  claimed = new UnorderedMap('claimed-nfts');
+  nftOwner = new UnorderedMap('NFT-owner');
   init({
-    tokenAddress
+    owner,
+    tokenAddress,
+    nftAddress,
+    blockList
   }) {
+    owner.forEach(id => this.controller.set(id, true));
     this.tokenAddress = tokenAddress;
+    this.nftAddress = nftAddress;
+    blockList.forEach(id => this.blockList.push(id));
+  }
+  startAirdrop({
+    start,
+    end,
+    amount,
+    limit
+  }) {
+    this.notAllowed();
+    this.startAt = start;
+    this.endAt = end;
+    this.limit = limit;
+    this.reward = (amount / limit).toString();
+  }
+  query_balance_callback() {
+    let {
+      result,
+      success
+    } = promiseResult();
+    if (success) {
+      log(result);
+      this.balance = result.substring(1, result.length - 1);
+      return result.substring(1, result.length - 1);
+    } else {
+      log("Promise failed...");
+      return "";
+    }
   }
   get_balance() {
     return this.balance;
   }
+  set_timer({
+    start,
+    end
+  }) {
+    this.notAllowed();
+    this.startAt = start;
+    this.endAt = end;
+  }
+  Timer() {
+    let started = false;
+    if (blockTimestamp() > this.startAt) {
+      started = true;
+    }
+    if (blockTimestamp() > this.endAt) {
+      started = false;
+    }
+    return {
+      activated: started,
+      startAt: this.startAt,
+      endAt: this.endAt
+    };
+  }
+  status({
+    tokenId
+  }) {
+    return this.nftOwner.get(tokenId);
+  }
   transfer_tokens({
+    tokenId
+  }) {
+    const nft = this.nftOwner.get(tokenId);
+    if (nft?.owner === signerAccountId() && nft?.claimed === false && this.rewarded <= this.limit) {
+      const promise = promiseBatchCreate(this.tokenAddress);
+      promiseBatchActionFunctionCall(promise, "ft_transfer", JSON.stringify({
+        receiver_id: nft?.owner,
+        amount: this.reward
+      }), 1, GAS_FOR_NFT_TRANSFER);
+      this.nftOwner.set(tokenId, {
+        owner: nft.owner,
+        claimed: true
+      });
+      this.rewarded = this.rewarded + 1n;
+      return promiseReturn(promise);
+    }
+  }
+  withdraw({
     receiverId,
     amount
   }) {
+    this.notAllowed();
     const promise = promiseBatchCreate(this.tokenAddress);
     promiseBatchActionFunctionCall(promise, "ft_transfer", JSON.stringify({
       receiver_id: receiverId,
@@ -1009,27 +1659,56 @@ let airdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = vie
       return false;
     }
   }
-  query_balance() {
-    const promise = NearPromise.new(this.tokenAddress).functionCall("ft_balance_of", JSON.stringify({
-      account_id: currentAccountId()
-    }), NO_DEPOSIT, FIVE_TGAS).then(NearPromise.new(currentAccountId()).functionCall("query_balance_callback", NO_ARGS, NO_DEPOSIT, FIVE_TGAS));
-    return promise.asReturn();
+  query_nft_totalSupply() {
+    const promise = NearPromise.new(this.nftAddress).functionCall("nft_total_supply", "", NO_DEPOSIT, FIVE_TGAS).then(NearPromise.new(currentAccountId()).functionCall("nft_total_supply_callback", NO_ARGS, NO_DEPOSIT, FIVE_TGAS));
+    return promise.onReturn();
   }
-  query_balance_callback() {
+  nft_total_supply_callback() {
     let {
       result,
       success
     } = promiseResult();
     if (success) {
-      this.balance = result.substring(1, result.length - 1);
-      return result.substring(1, result.length - 1);
+      log(result * 10);
+      return result;
+    } else {
+      log("Promise failed...");
+      return 0;
+    }
+  }
+  query_nft_token({
+    tokenId
+  }) {
+    const promise = NearPromise.new(this.nftAddress).functionCall("nft_token", JSON.stringify({
+      token_id: tokenId
+    }), NO_DEPOSIT, FIVE_TGAS).then(NearPromise.new(currentAccountId()).functionCall("query_query_nft_token_callback", NO_ARGS, NO_DEPOSIT, FIVE_TGAS));
+    return promise.onReturn();
+  }
+  query_query_nft_token_callback() {
+    let {
+      result,
+      success
+    } = promiseResult();
+    if (success) {
+      let json = JSON.parse(result);
+      this.nftOwner.set(json.token_id, {
+        owner: json.owner_id,
+        claimed: false
+      });
+      return json;
     } else {
       log("Promise failed...");
       return "";
     }
   }
-}, (_applyDecoratedDescriptor(_class2.prototype, "init", [_dec2], Object.getOwnPropertyDescriptor(_class2.prototype, "init"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "get_balance", [_dec3], Object.getOwnPropertyDescriptor(_class2.prototype, "get_balance"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "transfer_tokens", [_dec4], Object.getOwnPropertyDescriptor(_class2.prototype, "transfer_tokens"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "transfer_tokens_callback", [_dec5], Object.getOwnPropertyDescriptor(_class2.prototype, "transfer_tokens_callback"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_balance", [_dec6], Object.getOwnPropertyDescriptor(_class2.prototype, "query_balance"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_balance_callback", [_dec7], Object.getOwnPropertyDescriptor(_class2.prototype, "query_balance_callback"), _class2.prototype)), _class2)) || _class);
-function query_balance_callback() {
+  notAllowed() {
+    const allowed = this.controller.get(signerAccountId());
+    if (allowed !== true) {
+      throw new Error(`Not allow to change time`);
+    }
+  }
+}, (_applyDecoratedDescriptor(_class2.prototype, "init", [_dec2], Object.getOwnPropertyDescriptor(_class2.prototype, "init"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "startAirdrop", [_dec3], Object.getOwnPropertyDescriptor(_class2.prototype, "startAirdrop"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_balance_callback", [_dec4], Object.getOwnPropertyDescriptor(_class2.prototype, "query_balance_callback"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "get_balance", [_dec5], Object.getOwnPropertyDescriptor(_class2.prototype, "get_balance"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "set_timer", [_dec6], Object.getOwnPropertyDescriptor(_class2.prototype, "set_timer"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "Timer", [_dec7], Object.getOwnPropertyDescriptor(_class2.prototype, "Timer"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "status", [_dec8], Object.getOwnPropertyDescriptor(_class2.prototype, "status"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "transfer_tokens", [_dec9], Object.getOwnPropertyDescriptor(_class2.prototype, "transfer_tokens"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "withdraw", [_dec10], Object.getOwnPropertyDescriptor(_class2.prototype, "withdraw"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "transfer_tokens_callback", [_dec11], Object.getOwnPropertyDescriptor(_class2.prototype, "transfer_tokens_callback"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_nft_totalSupply", [_dec12], Object.getOwnPropertyDescriptor(_class2.prototype, "query_nft_totalSupply"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "nft_total_supply_callback", [_dec13], Object.getOwnPropertyDescriptor(_class2.prototype, "nft_total_supply_callback"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_nft_token", [_dec14], Object.getOwnPropertyDescriptor(_class2.prototype, "query_nft_token"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_query_nft_token_callback", [_dec15], Object.getOwnPropertyDescriptor(_class2.prototype, "query_query_nft_token_callback"), _class2.prototype)), _class2)) || _class);
+function query_query_nft_token_callback() {
   const _state = airdropContract._getState();
   if (!_state && airdropContract._requireInit()) {
     throw new Error("Contract must be initialized");
@@ -1039,11 +1718,11 @@ function query_balance_callback() {
     airdropContract._reconstruct(_contract, _state);
   }
   const _args = airdropContract._getArgs();
-  const _result = _contract.query_balance_callback(_args);
+  const _result = _contract.query_query_nft_token_callback(_args);
   airdropContract._saveToStorage(_contract);
   if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
 }
-function query_balance() {
+function query_nft_token() {
   const _state = airdropContract._getState();
   if (!_state && airdropContract._requireInit()) {
     throw new Error("Contract must be initialized");
@@ -1053,7 +1732,35 @@ function query_balance() {
     airdropContract._reconstruct(_contract, _state);
   }
   const _args = airdropContract._getArgs();
-  const _result = _contract.query_balance(_args);
+  const _result = _contract.query_nft_token(_args);
+  airdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+}
+function nft_total_supply_callback() {
+  const _state = airdropContract._getState();
+  if (!_state && airdropContract._requireInit()) {
+    throw new Error("Contract must be initialized");
+  }
+  const _contract = airdropContract._create();
+  if (_state) {
+    airdropContract._reconstruct(_contract, _state);
+  }
+  const _args = airdropContract._getArgs();
+  const _result = _contract.nft_total_supply_callback(_args);
+  airdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+}
+function query_nft_totalSupply() {
+  const _state = airdropContract._getState();
+  if (!_state && airdropContract._requireInit()) {
+    throw new Error("Contract must be initialized");
+  }
+  const _contract = airdropContract._create();
+  if (_state) {
+    airdropContract._reconstruct(_contract, _state);
+  }
+  const _args = airdropContract._getArgs();
+  const _result = _contract.query_nft_totalSupply(_args);
   airdropContract._saveToStorage(_contract);
   if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
 }
@@ -1071,6 +1778,20 @@ function transfer_tokens_callback() {
   airdropContract._saveToStorage(_contract);
   if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
 }
+function withdraw() {
+  const _state = airdropContract._getState();
+  if (!_state && airdropContract._requireInit()) {
+    throw new Error("Contract must be initialized");
+  }
+  const _contract = airdropContract._create();
+  if (_state) {
+    airdropContract._reconstruct(_contract, _state);
+  }
+  const _args = airdropContract._getArgs();
+  const _result = _contract.withdraw(_args);
+  airdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+}
 function transfer_tokens() {
   const _state = airdropContract._getState();
   if (!_state && airdropContract._requireInit()) {
@@ -1085,6 +1806,46 @@ function transfer_tokens() {
   airdropContract._saveToStorage(_contract);
   if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
 }
+function status() {
+  const _state = airdropContract._getState();
+  if (!_state && airdropContract._requireInit()) {
+    throw new Error("Contract must be initialized");
+  }
+  const _contract = airdropContract._create();
+  if (_state) {
+    airdropContract._reconstruct(_contract, _state);
+  }
+  const _args = airdropContract._getArgs();
+  const _result = _contract.status(_args);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+}
+function Timer() {
+  const _state = airdropContract._getState();
+  if (!_state && airdropContract._requireInit()) {
+    throw new Error("Contract must be initialized");
+  }
+  const _contract = airdropContract._create();
+  if (_state) {
+    airdropContract._reconstruct(_contract, _state);
+  }
+  const _args = airdropContract._getArgs();
+  const _result = _contract.Timer(_args);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+}
+function set_timer() {
+  const _state = airdropContract._getState();
+  if (!_state && airdropContract._requireInit()) {
+    throw new Error("Contract must be initialized");
+  }
+  const _contract = airdropContract._create();
+  if (_state) {
+    airdropContract._reconstruct(_contract, _state);
+  }
+  const _args = airdropContract._getArgs();
+  const _result = _contract.set_timer(_args);
+  airdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+}
 function get_balance() {
   const _state = airdropContract._getState();
   if (!_state && airdropContract._requireInit()) {
@@ -1096,6 +1857,34 @@ function get_balance() {
   }
   const _args = airdropContract._getArgs();
   const _result = _contract.get_balance(_args);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+}
+function query_balance_callback() {
+  const _state = airdropContract._getState();
+  if (!_state && airdropContract._requireInit()) {
+    throw new Error("Contract must be initialized");
+  }
+  const _contract = airdropContract._create();
+  if (_state) {
+    airdropContract._reconstruct(_contract, _state);
+  }
+  const _args = airdropContract._getArgs();
+  const _result = _contract.query_balance_callback(_args);
+  airdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+}
+function startAirdrop() {
+  const _state = airdropContract._getState();
+  if (!_state && airdropContract._requireInit()) {
+    throw new Error("Contract must be initialized");
+  }
+  const _contract = airdropContract._create();
+  if (_state) {
+    airdropContract._reconstruct(_contract, _state);
+  }
+  const _args = airdropContract._getArgs();
+  const _result = _contract.startAirdrop(_args);
+  airdropContract._saveToStorage(_contract);
   if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
 }
 function init() {
@@ -1125,5 +1914,5 @@ function promiseResult() {
   };
 }
 
-export { get_balance, init, query_balance, query_balance_callback, transfer_tokens, transfer_tokens_callback };
+export { Timer, get_balance, init, nft_total_supply_callback, query_balance_callback, query_nft_token, query_nft_totalSupply, query_query_nft_token_callback, set_timer, startAirdrop, status, transfer_tokens, transfer_tokens_callback, withdraw };
 //# sourceMappingURL=airdrops.js.map

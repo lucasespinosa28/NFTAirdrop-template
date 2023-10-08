@@ -1,0 +1,511 @@
+Failure during trasaction excecution, details: {
+    "result": {
+        "receipts_outcome": [
+            {
+                "block_hash": "A3RZRicXJCzdLuptahY56qTQSWHNxB1gPrvBXVDeNMSq",
+                "id": "GQrJGPyRMsZsSePUZk37HfaVPhrnNVzhhYwdhn5D4drd",
+                "outcome": {
+                    "executor_id": "usar1",
+                    "gas_burnt": 207666875000,
+                    "logs": [],
+                    "metadata": {
+                        "gas_profile": [],
+                        "version": 1
+                    },
+                    "receipt_ids": [
+                        "FBi6LxkXjY4kGL3b5Dn21QoV4RWPJFd4kJ2FZ625jh84",
+                        "42WeP148eKNbPLX3RfYsHBPWNuH4BFTmDY9QA2V6obhX"
+                    ],
+                    "status": {
+                        "Failure": {
+                            "ActionError": {
+                                "index": 0,
+                                "kind": {
+                                    "CreateAccountOnlyByRegistrar": {
+                                        "account_id": "usar1",
+                                        "predecessor_id": "test.near",
+                                        "registrar_account_id": "registrar"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "tokens_burnt": "20766687500000000000"
+                },
+                "proof": []
+            },
+            {
+                "block_hash": "F8pXVWqy5zjEZWocmFjT96tDkpcCmMmDAyQJ5WVAP1AP",
+                "id": "FBi6LxkXjY4kGL3b5Dn21QoV4RWPJFd4kJ2FZ625jh84",
+                "outcome": {
+                    "executor_id": "test.near",
+                    "gas_burnt": 223182562500,
+                    "logs": [],
+                    "metadata": {
+                        "gas_profile": [],
+                        "version": 1
+                    },
+                    "receipt_ids": [],
+                    "status": {
+                        "SuccessValue": ""
+                    },
+                    "tokens_burnt": "0"
+                },
+                "proof": [
+                    {
+                        "direction": "Right",
+                        "hash": "DBLCzd4hKAjFYR5x4G6RiGbqzm84fvSST4f92gYAvW9f"
+                    }
+                ]
+            },
+            {
+                "block_hash": "F8pXVWqy5zjEZWocmFjT96tDkpcCmMmDAyQJ5WVAP1AP",
+                "id": "42WeP148eKNbPLX3RfYsHBPWNuH4BFTmDY9QA2V6obhX",
+                "outcome": {
+                    "executor_id": "test.near",
+                    "gas_burnt": 223182562500,
+                    "logs": [],
+                    "metadata": {
+                        "gas_profile": [],
+                        "version": 1
+                    },
+                    "receipt_ids": [],
+                    "status": {
+                        "SuccessValue": ""
+                    },
+                    "tokens_burnt": "0"
+                },
+                "proof": [
+                    {
+                        "direction": "Left",
+                        "hash": "JEGw2EpSznaQRVwrHZBNKVbdzXTgpGp4vsQP21UqjeEZ"
+                    }
+                ]
+            }
+        ],
+        "status": {
+            "Failure": {
+                "ActionError": {
+                    "index": 0,
+                    "kind": {
+                        "CreateAccountOnlyByRegistrar": {
+                            "account_id": "usar1",
+                            "predecessor_id": "test.near",
+                            "registrar_account_id": "registrar"
+                        }
+                    }
+                }
+            }
+        },
+        "transaction": {
+            "actions": [
+                "CreateAccount",
+                {
+                    "Transfer": {
+                        "deposit": "100000000000000000000000000"
+                    }
+                },
+                {
+                    "AddKey": {
+                        "access_key": {
+                            "nonce": 0,
+                            "permission": "FullAccess"
+                        },
+                        "public_key": "ed25519:HeqBH2oYFMa1mUWFkmmhT53JHq45mYnvVskwVbNFXDnW"
+                    }
+                }
+            ],
+            "hash": "8GrMKFeuoCgANSruLi1Cpnqx6erJNZDGm14tW7Yu9tKA",
+            "nonce": 4,
+            "public_key": "ed25519:8DQyCTncvFeTLLfchPd5UbqAPJp2QL5WiTb3vZoe9Kko",
+            "receiver_id": "usar1",
+            "signature": "ed25519:3XDrfKErFMrTeY2zPAPG4AR6oTFv99KxZ62m59cyPoHSPDxkqg6b9j2t6rjb8MmRkKmUkNNX3yj5SVycdVZYVc4R",
+            "signer_id": "test.near"
+        },
+        "transaction_outcome": {
+            "block_hash": "F8Z1kW7P18YkGs1hBaBw9RgkSwBNnyDNV3A6JTJLy5pC",
+            "id": "8GrMKFeuoCgANSruLi1Cpnqx6erJNZDGm14tW7Yu9tKA",
+            "outcome": {
+                "executor_id": "test.near",
+                "gas_burnt": 424555062500,
+                "logs": [],
+                "metadata": {
+                    "gas_profile": null,
+                    "version": 1
+                },
+                "receipt_ids": [
+                    "GQrJGPyRMsZsSePUZk37HfaVPhrnNVzhhYwdhn5D4drd"
+                ],
+                "status": {
+                    "SuccessReceiptId": "GQrJGPyRMsZsSePUZk37HfaVPhrnNVzhhYwdhn5D4drd"
+                },
+                "tokens_burnt": "42455506250000000000"
+            },
+            "proof": []
+        }
+    },
+    "startMs": 1696736285791,
+    "endMs": 1696736287814,
+    "config": {
+        "network": "sandbox",
+        "rootAccountId": "test.near",
+        "rpcAddr": "http://localhost:4824",
+        "initialBalance": "100000000000000000000000000",
+        "homeDir": "/tmp/sandbox/2ff9f65b-9fdf-45c7-9912-a759225e77f0",
+        "port": 4824,
+        "rm": false,
+        "refDir": null
+    }
+}',
+}
+
+  › Account.createAccount (node_modules/near-workspaces/src/account/account.ts: 87: 13)
+  › async src/airdrop.ava.ts: 95: 19
+
+
+
+  beforeEach hook for Error from set time
+
+  Rejected promise returned by test. Reason:
+
+  Error {
+    message: 'Failure during trasaction excecution, details: {
+    "result": {
+        "receipts_outcome": [
+            {
+                "block_hash": "9EjdyRZ3iZvM7PUSB9WHPDUs8t5Udgcg5vcSZUrcsK1a",
+                "id": "9rjodQ27Bg3px2KZwgCoX3spNe7xFA5uFhS6ysUdstRZ",
+                "outcome": {
+                    "executor_id": "usar1",
+                    "gas_burnt": 207666875000,
+                    "logs": [],
+                    "metadata": {
+                        "gas_profile": [],
+                        "version": 1
+                    },
+                    "receipt_ids": [
+                        "2Zase6nudwXKUQrvW6NKJePbpBfzjNewm2Rec9RPK9si",
+                        "2TFzuh6HsdWinqjvbJ8YAeGGQAVYA7U5yzp9cz9uxHfF"
+                    ],
+                    "status": {
+                        "Failure": {
+                            "ActionError": {
+                                "index": 0,
+                                "kind": {
+                                    "CreateAccountOnlyByRegistrar": {
+                                        "account_id": "usar1",
+                                        "predecessor_id": "test.near",
+                                        "registrar_account_id": "registrar"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "tokens_burnt": "20766687500000000000"
+                },
+                "proof": []
+            },
+            {
+                "block_hash": "Bu7v9DJ3LzUT2UYK51qiMY388XSxbYWy3Rvmk5WS7UQr",
+                "id": "2Zase6nudwXKUQrvW6NKJePbpBfzjNewm2Rec9RPK9si",
+                "outcome": {
+                    "executor_id": "test.near",
+                    "gas_burnt": 223182562500,
+                    "logs": [],
+                    "metadata": {
+                        "gas_profile": [],
+                        "version": 1
+                    },
+                    "receipt_ids": [],
+                    "status": {
+                        "SuccessValue": ""
+                    },
+                    "tokens_burnt": "0"
+                },
+                "proof": [
+                    {
+                        "direction": "Right",
+                        "hash": "9bnxh1L1b7Hk7a8TDn6uvXHd6Qo4m5oj74vadSB78AQn"
+                    }
+                ]
+            },
+            {
+                "block_hash": "Bu7v9DJ3LzUT2UYK51qiMY388XSxbYWy3Rvmk5WS7UQr",
+                "id": "2TFzuh6HsdWinqjvbJ8YAeGGQAVYA7U5yzp9cz9uxHfF",
+                "outcome": {
+                    "executor_id": "test.near",
+                    "gas_burnt": 223182562500,
+                    "logs": [],
+                    "metadata": {
+                        "gas_profile": [],
+                        "version": 1
+                    },
+                    "receipt_ids": [],
+                    "status": {
+                        "SuccessValue": ""
+                    },
+                    "tokens_burnt": "0"
+                },
+                "proof": [
+                    {
+                        "direction": "Left",
+                        "hash": "AePJ7q3Mv3dLwowmtqE4HEPgSDpCWQ7Jwep2CLDBo9Zs"
+                    }
+                ]
+            }
+        ],
+        "status": {
+            "Failure": {
+                "ActionError": {
+                    "index": 0,
+                    "kind": {
+                        "CreateAccountOnlyByRegistrar": {
+                            "account_id": "usar1",
+                            "predecessor_id": "test.near",
+                            "registrar_account_id": "registrar"
+                        }
+                    }
+                }
+            }
+        },
+        "transaction": {
+            "actions": [
+                "CreateAccount",
+                {
+                    "Transfer": {
+                        "deposit": "100000000000000000000000000"
+                    }
+                },
+                {
+                    "AddKey": {
+                        "access_key": {
+                            "nonce": 0,
+                            "permission": "FullAccess"
+                        },
+                        "public_key": "ed25519:46tJvt2ExBZvic6xSFeYg3A93eCjWKGYKmDpRf16VUmL"
+                    }
+                }
+            ],
+            "hash": "4MVFhF5DY5cbS6i8zKRvGoD3XE1CcYAnQtXsh3THjP8P",
+            "nonce": 4,
+            "public_key": "ed25519:EeVox4CyNh7VYt6irmJUPqqtD6HScPqpH98ToF4JjeNs",
+            "receiver_id": "usar1",
+            "signature": "ed25519:58xW3Fi5qKgsWkgktBxrrXRGEtcmdDdW8EtopCWai7Y8ab2VN4Yb5u2q6G2iXCeXgUfUXHTMMn6bbd8Rrk98Gc5i",
+            "signer_id": "test.near"
+        },
+        "transaction_outcome": {
+            "block_hash": "HwLMx9WqR7sa7ueH9VNmXDmBTokvda3mJqptLZ1AXNnD",
+            "id": "4MVFhF5DY5cbS6i8zKRvGoD3XE1CcYAnQtXsh3THjP8P",
+            "outcome": {
+                "executor_id": "test.near",
+                "gas_burnt": 424555062500,
+                "logs": [],
+                "metadata": {
+                    "gas_profile": null,
+                    "version": 1
+                },
+                "receipt_ids": [
+                    "9rjodQ27Bg3px2KZwgCoX3spNe7xFA5uFhS6ysUdstRZ"
+                ],
+                "status": {
+                    "SuccessReceiptId": "9rjodQ27Bg3px2KZwgCoX3spNe7xFA5uFhS6ysUdstRZ"
+                },
+                "tokens_burnt": "42455506250000000000"
+            },
+            "proof": []
+        }
+    },
+    "startMs": 1696736287447,
+    "endMs": 1696736289966,
+    "config": {
+        "network": "sandbox",
+        "rootAccountId": "test.near",
+        "rpcAddr": "http://localhost:4821",
+        "initialBalance": "100000000000000000000000000",
+        "homeDir": "/tmp/sandbox/a8ba86e7-0031-4017-b550-8c1f8d247ede",
+        "port": 4821,
+        "rm": false,
+        "refDir": null
+    }
+}',
+}
+
+  › Account.createAccount (node_modules/near-workspaces/src/account/account.ts: 87: 13)
+  › async src/airdrop.ava.ts: 95: 19
+
+
+
+  beforeEach hook for Airdrop balance
+
+  Rejected promise returned by test. Reason:
+
+  Error {
+    message: 'Failure during trasaction excecution, details: {
+    "result": {
+        "receipts_outcome": [
+            {
+                "block_hash": "FWYwsWy4TYfh4JaRw6Fz6jmoQvzT1RD8fG5bVnE2PnMG",
+                "id": "3yYGfj6yLZJPdZUJ9UqzjSbpwF6MhQVQe4FejUBLGucd",
+                "outcome": {
+                    "executor_id": "usar1",
+                    "gas_burnt": 207666875000,
+                    "logs": [],
+                    "metadata": {
+                        "gas_profile": [],
+                        "version": 1
+                    },
+                    "receipt_ids": [
+                        "8tnm9Tbh3c2ftQ85CUo4dRA59jtKYSdoUqhx9X8RHSD4",
+                        "AUCCCfrMUoBvLeFuQa97TAGS2mtyFmwfvty5zUK2Pj5R"
+                    ],
+                    "status": {
+                        "Failure": {
+                            "ActionError": {
+                                "index": 0,
+                                "kind": {
+                                    "CreateAccountOnlyByRegistrar": {
+                                        "account_id": "usar1",
+                                        "predecessor_id": "test.near",
+                                        "registrar_account_id": "registrar"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "tokens_burnt": "20766687500000000000"
+                },
+                "proof": []
+            },
+            {
+                "block_hash": "5XcBAv4viMVbDgcwSPKQ8x23dYSYgjZnSto9YYc5HMsQ",
+                "id": "8tnm9Tbh3c2ftQ85CUo4dRA59jtKYSdoUqhx9X8RHSD4",
+                "outcome": {
+                    "executor_id": "test.near",
+                    "gas_burnt": 223182562500,
+                    "logs": [],
+                    "metadata": {
+                        "gas_profile": [],
+                        "version": 1
+                    },
+                    "receipt_ids": [],
+                    "status": {
+                        "SuccessValue": ""
+                    },
+                    "tokens_burnt": "0"
+                },
+                "proof": [
+                    {
+                        "direction": "Right",
+                        "hash": "9JYV4pUUDg9W2t83Tsu9xdBFGAwRNZ2hEMoEmzS6Fku4"
+                    }
+                ]
+            },
+            {
+                "block_hash": "5XcBAv4viMVbDgcwSPKQ8x23dYSYgjZnSto9YYc5HMsQ",
+                "id": "AUCCCfrMUoBvLeFuQa97TAGS2mtyFmwfvty5zUK2Pj5R",
+                "outcome": {
+                    "executor_id": "test.near",
+                    "gas_burnt": 223182562500,
+                    "logs": [],
+                    "metadata": {
+                        "gas_profile": [],
+                        "version": 1
+                    },
+                    "receipt_ids": [],
+                    "status": {
+                        "SuccessValue": ""
+                    },
+                    "tokens_burnt": "0"
+                },
+                "proof": [
+                    {
+                        "direction": "Left",
+                        "hash": "6NfEEZa2B4sBpUo2ZJDdCBxFeQwX8wHyg3Rfjfn1Bniu"
+                    }
+                ]
+            }
+        ],
+        "status": {
+            "Failure": {
+                "ActionError": {
+                    "index": 0,
+                    "kind": {
+                        "CreateAccountOnlyByRegistrar": {
+                            "account_id": "usar1",
+                            "predecessor_id": "test.near",
+                            "registrar_account_id": "registrar"
+                        }
+                    }
+                }
+            }
+        },
+        "transaction": {
+            "actions": [
+                "CreateAccount",
+                {
+                    "Transfer": {
+                        "deposit": "100000000000000000000000000"
+                    }
+                },
+                {
+                    "AddKey": {
+                        "access_key": {
+                            "nonce": 0,
+                            "permission": "FullAccess"
+                        },
+                        "public_key": "ed25519:3UAvuqMTK78HbKMB9CTjF9iS139QgWzs91nVWXZ6dAtL"
+                    }
+                }
+            ],
+            "hash": "9cqiHUjrwUhDikr22TH7BR2g9VosGa22tEV1HndAF2sD",
+            "nonce": 4,
+            "public_key": "ed25519:44waJyXWcjHhWccxHsLX5ZBXnKqQTnDakxQFmYD4kxC1",
+            "receiver_id": "usar1",
+            "signature": "ed25519:251vHPRegiKcDt2V8TCnkCeFaTrJrtcs8EA1C1kSLuRKuQoP2NhcVVmy9jCZ2jHxXmcLP8jx9V5mNprmxfzyUZrW",
+            "signer_id": "test.near"
+        },
+        "transaction_outcome": {
+            "block_hash": "8d9psS9EXVyHqcUh6oosacpE5DA2AowYCHfHgQgB8Kbr",
+            "id": "9cqiHUjrwUhDikr22TH7BR2g9VosGa22tEV1HndAF2sD",
+            "outcome": {
+                "executor_id": "test.near",
+                "gas_burnt": 424555062500,
+                "logs": [],
+                "metadata": {
+                    "gas_profile": null,
+                    "version": 1
+                },
+                "receipt_ids": [
+                    "3yYGfj6yLZJPdZUJ9UqzjSbpwF6MhQVQe4FejUBLGucd"
+                ],
+                "status": {
+                    "SuccessReceiptId": "3yYGfj6yLZJPdZUJ9UqzjSbpwF6MhQVQe4FejUBLGucd"
+                },
+                "tokens_burnt": "42455506250000000000"
+            },
+            "proof": []
+        }
+    },
+    "startMs": 1696736288318,
+    "endMs": 1696736290338,
+    "config": {
+        "network": "sandbox",
+        "rootAccountId": "test.near",
+        "rpcAddr": "http://localhost:4825",
+        "initialBalance": "100000000000000000000000000",
+        "homeDir": "/tmp/sandbox/ac28e07a-6f41-4479-857b-73b4165d6a90",
+        "port": 4825,
+        "rm": false,
+        "refDir": null
+    }
+}',
+}
+
+  › Account.createAccount (node_modules/near-workspaces/src/account/account.ts: 87: 13)
+  › async src/airdrop.ava.ts: 95: 19
+
+
+
+  beforeEach hook for Not started
+
+  Rejected promise returned by test. Reason:

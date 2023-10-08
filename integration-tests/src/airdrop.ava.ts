@@ -9,6 +9,16 @@ export interface NFT {
     metadata: Metadata
     approved_account_ids: ApprovedAccountIds
 }
+interface NFTOwnership {
+    owner: string;
+    claimed: boolean;
+}
+
+interface Timepiece {
+    activated: boolean,
+    startAt: bigint;
+    endAt: bigint;
+}
 
 export interface Metadata {
     title: string
@@ -48,7 +58,6 @@ async function registerUser(ft: NearAccount, user: NearAccount) {
 test.beforeEach(async t => {
     const worker = await Worker.init();
     const root = worker.rootAccount;
-
     const token = await root.devDeploy(
         "build/fungible_token.wasm",
         {
@@ -69,32 +78,20 @@ test.beforeEach(async t => {
             args: { owner_id: root }
         },
     );
-    // await root.call(
-    //     nft,
-    //     "nft_mint",
-    //     {
-    //         token_id: "0",
-    //         receiver_id: root,
-    //         token_metadata: {
-    //             title: "Olympus Mons",
-    //             description: "The tallest mountain in the charted solar system",
-    //             media: null,
-    //             media_hash: null,
-    //             copies: 10000,
-    //             issued_at: null,
-    //             expires_at: null,
-    //             starts_at: null,
-    //             updated_at: null,
-    //             extra: null,
-    //             reference: null,
-    //             reference_hash: null,
-    //         }
-    //     },
-    //     { attachedDeposit: '7000000000000000000000' }
-    // );
 
-    const airdrop = await root.devDeploy("build/airdrops.wasm", { initialBalance: NEAR.parse('100 N').toJSON(),method: "init", args: { tokenAddress: token.accountId } })
-    //const airdrop = await root.createSubAccount('airdrop', { initialBalance: NEAR.parse('1 N').toJSON() })
+
+    const airdrop = await root.devDeploy("../../../contract/build/airdrops.wasm",
+        {
+            initialBalance: NEAR.parse('100 N').toJSON(),
+            method: "init", args: {
+                owner: [root.accountId],
+                tokenAddress: token.accountId,
+                nftAddress: nft.accountId,
+                from: 0,
+                limit: 100,
+                blockList: [""]
+            }
+        })
     t.context.worker = worker;
     t.context.accounts = { root, token, airdrop, nft };
 
@@ -106,8 +103,97 @@ test.afterEach(async t => {
     });
 });
 
-test("Airdrop", async t => {
+test("Not started ", async t => {
     const { airdrop, root, token } = t.context.accounts;
+    var date = new Date();
+    await root.call(airdrop, "set_timer", { start: date.setDate(date.getDate() + 1) * 1000000, end: date.setDate(date.getDate() + 2) * 1000000 })
+    const result = await airdrop.view("Timer") as Timepiece;
+    t.is(result.activated, false)
+});
+test("Error from set time ", async t => {
+    const { airdrop, root, token } = t.context.accounts;
+    var date = new Date();
+    const error = await t.throwsAsync(token.call(airdrop, "set_timer", { start: date.setDate(date.getDate() + 1) * 1000000, end: date.setDate(date.getDate() + 2) * 1000000 })
+    ) as Error;
+    t.is(error.name, "Error");
+
+
+});
+test("started ", async t => {
+    const { airdrop, root, token } = t.context.accounts;
+    var date = new Date();
+    date.setDate(date.getDate() + 1)
+    await root.call(airdrop, "set_timer", { start: date.setDate(date.getDate() - 1) * 1000000, end: date.setDate(date.getDate() + 2) * 1000000 })
+    const result = await airdrop.view("Timer") as Timepiece;
+    t.is(result.activated, true)
+});
+
+
+test("ended ", async t => {
+    const { airdrop, root, token } = t.context.accounts;
+    var date = new Date();
+    date.setDate(date.getDate() + 1)
+    await root.call(airdrop, "set_timer", {
+        start: date.setDate(date.getDate() - 1) * 1000000, end: date.setDate(date.getDate() - 2) * 1000000
+    })
+    const result = await airdrop.view("Timer") as Timepiece;
+    t.is(result.activated, false)
+});
+
+
+// test("Airdrop", async t => {
+//     const { airdrop, root, token,nft} = t.context.accounts;
+//     await root.call(
+//         nft,
+//         "nft_mint",
+//         {
+//             token_id: "0",
+//             receiver_id: root,
+//             token_metadata: {
+//                 title: "Olympus Mons",
+//                 description: "The tallest mountain in the charted solar system",
+//                 media: null,
+//                 media_hash: null,
+//                 copies: 10000,
+//                 issued_at: null,
+//                 expires_at: null,
+//                 starts_at: null,
+//                 updated_at: null,
+//                 extra: null,
+//                 reference: null,
+//                 reference_hash: null,
+//             }
+//         },
+//         { attachedDeposit: '7000000000000000000000' }
+//     );
+//     await root.call(airdrop, "query_nft_token", { tokenId: "0"},{ gas: TGAS })
+//     const status = await nft.view("status",{tokenId:"0"}) as NFTOwnership;
+//     t.is(status.claimed,false)
+//     // const transferAmount = new BN('100');
+//     // await root.call(
+//     //     token,
+//     //     'ft_transfer',
+//     //     {
+//     //         receiver_id: airdrop.accountId,
+//     //         amount: transferAmount,
+//     //     },
+//     //     { attachedDeposit: '1' },
+//     // );
+
+//     // const result = await root.call(airdrop, "query_balance", {}, { gas: TGAS });
+//     // t.is(result, "100")
+//     // const balance = await airdrop.view("get_balance", {});
+//     // t.is(balance as string, "100")
+
+//     // await root.call(airdrop, "transfer_tokens", {
+//     //     receiverId: root.accountId,
+//     //     amount: new BN("1"),
+//     // }, { attachedDeposit: '1' });
+//     // const final = await root.call(airdrop, "query_balance", {}, { gas: TGAS });
+//     // t.is(final, "99")
+// })
+test("withdraw", async t => {
+    const { airdrop, root, nft, token } = t.context.accounts;
     const transferAmount = new BN('100');
     await root.call(
         token,
@@ -118,20 +204,70 @@ test("Airdrop", async t => {
         },
         { attachedDeposit: '1' },
     );
-
-    const result = await root.call(airdrop, "query_balance", {}, { gas: TGAS });
-    t.is(result, "100")
-    const balance = await airdrop.view("get_balance", {});
-    t.is(balance as string, "100")
-
-    const transfer = await root.call(airdrop, "transfer_tokens", {
+    t.is(
+        await token.view('ft_balance_of', { account_id: airdrop.accountId }), "100"
+    )
+    await root.call(airdrop, "withdraw", {
         receiverId: root.accountId,
-        amount: new BN("1"),
-    },{attachedDeposit: '1' });
-    const final = await root.call(airdrop, "query_balance", {}, { gas: TGAS });
-    t.is(final, "99")
-})
+        amount: transferAmount,
+    }, { attachedDeposit: '1' });
+    t.is(
+        await token.view('ft_balance_of', { account_id: airdrop.accountId }), "0"
+    )
+});
+test("Airdrop balance", async t => {
+    const { airdrop, root, nft, token,usar1} = t.context.accounts;
+    var date = new Date();
+    const transferAmount = new BN('100');
 
+    await root.call(airdrop, "startAirdrop", { start: date.setDate(date.getDate() - 1) * 1000000, end: date.setDate(date.getDate() + 5) * 1000000, amount: new BN(1000), limit: new BN(100) })
+    await root.call(
+        token,
+        'ft_transfer',
+        {
+            receiver_id: airdrop.accountId,
+            amount: transferAmount,
+        },
+        { attachedDeposit: '1' },
+    );
+    await root.call(
+        nft,
+        "nft_mint",
+        {
+            token_id: "0",
+            receiver_id: root,
+            token_metadata: {
+                title: "Olympus Mons",
+                description: "The tallest mountain in the charted solar system",
+                media: null,
+                media_hash: null,
+                copies: 10000,
+                issued_at: null,
+                expires_at: null,
+                starts_at: null,
+                updated_at: null,
+                extra: null,
+                reference: null,
+                reference_hash: null,
+            }
+        },
+        { attachedDeposit: '7000000000000000000000' }
+    );
+
+    const result = await root.call(airdrop, "query_nft_token", { tokenId: "0" }, { gas: TGAS }) as NFT;
+    let status = await airdrop.view("status", { tokenId: "0" }) as NFTOwnership;
+    const id = root.accountId
+    t.is(result.owner_id, id)
+    t.is(result.token_id, "0")
+
+    await root.call(airdrop, "transfer_tokens", {
+        tokenId: "0",
+    }, { attachedDeposit: '1' });
+    status = await airdrop.view("status", { tokenId: "0" }) as NFTOwnership;
+    t.is(await token.view('ft_balance_of', { account_id: root.accountId }), "9910")
+
+
+})
 // test('Total supply', async t => {
 //     const { token } = t.context.accounts;
 //     const totalSupply: string = await token.view('ft_total_supply');
