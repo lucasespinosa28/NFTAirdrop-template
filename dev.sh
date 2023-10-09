@@ -1,7 +1,10 @@
 #!/usr/bin/env sh
-set -e
+set -e;
 cd contract;
 yarn compile;
-cd ..
+cd ..;
+cd factory;
+./build.sh;
+cd ..;
 cd integration-tests;
 yarn test;

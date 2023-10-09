@@ -1515,16 +1515,16 @@ class NearPromise {
   }
 }
 
-var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _class, _class2;
+var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _class, _class2;
 // assert(near.blockTimestamp === token.owner_id, "Predecessor must be the token owner");
 
 const FIVE_TGAS = BigInt("50000000000000");
 const NO_DEPOSIT = BigInt(0);
 const NO_ARGS = JSON.stringify({});
 const GAS_FOR_NFT_TRANSFER = 15_000_000_000_000;
-let airdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = call({}), _dec4 = call({
+let AirdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = call({}), _dec4 = call({}), _dec5 = call({
   privateFunction: true
-}), _dec5 = view(), _dec6 = call({}), _dec7 = view(), _dec8 = view(), _dec9 = call({
+}), _dec6 = view(), _dec7 = view(), _dec8 = view(), _dec9 = call({
   payableFunction: true
 }), _dec10 = call({
   payableFunction: true
@@ -1532,47 +1532,55 @@ let airdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
   privateFunction: true
 }), _dec12 = call({}), _dec13 = call({
   privateFunction: true
-}), _dec14 = call({}), _dec15 = call({
-  privateFunction: true
-}), _dec(_class = (_class2 = class airdropContract {
-  controller = new UnorderedMap('controller-map');
+}), _dec(_class = (_class2 = class AirdropContract {
+  owner = new UnorderedMap('owner-map');
   tokenAddress = "";
   nftAddress = "";
   balance = "0";
   from = 0;
   reward = "";
-  limit = 1n;
-  rewarded = 0n;
+  limit = BigInt(1);
+  rewarded = blockTimestamp();
   startAt = blockTimestamp();
-  endAt = blockTimestamp();
+  endAt = BigInt(0);
   blockList = new Vector('banned-nfts');
   claimed = new UnorderedMap('claimed-nfts');
   nftOwner = new UnorderedMap('NFT-owner');
   init({
-    owner,
     tokenAddress,
-    nftAddress,
-    blockList
+    nftAddress
   }) {
-    owner.forEach(id => this.controller.set(id, true));
+    const signer = signerAccountId();
+    this.owner.set(signer, true);
     this.tokenAddress = tokenAddress;
     this.nftAddress = nftAddress;
-    blockList.forEach(id => this.blockList.push(id));
+    log(`{"signer":"${signer}","tokenAddress":"${tokenAddress}","nftAddress":"${nftAddress}"}`);
+  }
+  update_owners({
+    ids
+  }) {
+    ids.forEach(id => this.owner.set(id, true));
   }
   startAirdrop({
-    start,
-    end,
+    startAt,
+    endAt,
     amount,
-    limit
+    limit,
+    blockList
   }) {
     this.notAllowed();
-    this.startAt = start;
-    this.endAt = end;
+    log(`start ${startAt} end ${endAt}`);
+    if (startAt >= endAt) {
+      throw new Error(`End time need to be greater that start time`);
+    }
+    this.startAt = startAt;
+    this.endAt = endAt;
     this.limit = limit;
     this.reward = (amount / limit).toString();
+    blockList.forEach(id => this.blockList.push(id));
   }
   query_balance_callback() {
-    let {
+    const {
       result,
       success
     } = promiseResult();
@@ -1588,20 +1596,15 @@ let airdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
   get_balance() {
     return this.balance;
   }
-  set_timer({
-    start,
-    end
-  }) {
-    this.notAllowed();
-    this.startAt = start;
-    this.endAt = end;
-  }
   Timer() {
     let started = false;
     if (blockTimestamp() > this.startAt) {
       started = true;
     }
-    if (blockTimestamp() > this.endAt) {
+    if (blockTimestamp() >= this.endAt) {
+      started = false;
+    }
+    if (this.endAt === this.startAt) {
       started = false;
     }
     return {
@@ -1618,6 +1621,7 @@ let airdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
   transfer_tokens({
     tokenId
   }) {
+    this.actived();
     const nft = this.nftOwner.get(tokenId);
     if (nft?.owner === signerAccountId() && nft?.claimed === false && this.rewarded <= this.limit) {
       const promise = promiseBatchCreate(this.tokenAddress);
@@ -1629,7 +1633,7 @@ let airdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
         owner: nft.owner,
         claimed: true
       });
-      this.rewarded = this.rewarded + 1n;
+      this.rewarded = this.rewarded + BigInt(1);
       return promiseReturn(promise);
     }
   }
@@ -1638,15 +1642,17 @@ let airdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
     amount
   }) {
     this.notAllowed();
-    const promise = promiseBatchCreate(this.tokenAddress);
-    promiseBatchActionFunctionCall(promise, "ft_transfer", JSON.stringify({
-      receiver_id: receiverId,
-      amount: amount
-    }), 1, GAS_FOR_NFT_TRANSFER);
-    return promiseReturn(promise);
+    if (blockTimestamp() > this.endAt) {
+      const promise = promiseBatchCreate(this.tokenAddress);
+      promiseBatchActionFunctionCall(promise, "ft_transfer", JSON.stringify({
+        receiver_id: receiverId,
+        amount: amount
+      }), 1, GAS_FOR_NFT_TRANSFER);
+      return promiseReturn(promise);
+    }
   }
   transfer_tokens_callback() {
-    let {
+    const {
       result,
       success
     } = promiseResult();
@@ -1659,23 +1665,6 @@ let airdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
       return false;
     }
   }
-  query_nft_totalSupply() {
-    const promise = NearPromise.new(this.nftAddress).functionCall("nft_total_supply", "", NO_DEPOSIT, FIVE_TGAS).then(NearPromise.new(currentAccountId()).functionCall("nft_total_supply_callback", NO_ARGS, NO_DEPOSIT, FIVE_TGAS));
-    return promise.onReturn();
-  }
-  nft_total_supply_callback() {
-    let {
-      result,
-      success
-    } = promiseResult();
-    if (success) {
-      log(result * 10);
-      return result;
-    } else {
-      log("Promise failed...");
-      return 0;
-    }
-  }
   query_nft_token({
     tokenId
   }) {
@@ -1685,12 +1674,12 @@ let airdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
     return promise.onReturn();
   }
   query_query_nft_token_callback() {
-    let {
+    const {
       result,
       success
     } = promiseResult();
     if (success) {
-      let json = JSON.parse(result);
+      const json = JSON.parse(result);
       this.nftOwner.set(json.token_id, {
         owner: json.owner_id,
         claimed: false
@@ -1702,207 +1691,182 @@ let airdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
     }
   }
   notAllowed() {
-    const allowed = this.controller.get(signerAccountId());
-    if (allowed !== true) {
-      throw new Error(`Not allow to change time`);
+    if (this.owner.get(signerAccountId()) !== true) {
+      throw new Error(`You are not authorized to perform this action.`);
     }
   }
-}, (_applyDecoratedDescriptor(_class2.prototype, "init", [_dec2], Object.getOwnPropertyDescriptor(_class2.prototype, "init"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "startAirdrop", [_dec3], Object.getOwnPropertyDescriptor(_class2.prototype, "startAirdrop"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_balance_callback", [_dec4], Object.getOwnPropertyDescriptor(_class2.prototype, "query_balance_callback"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "get_balance", [_dec5], Object.getOwnPropertyDescriptor(_class2.prototype, "get_balance"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "set_timer", [_dec6], Object.getOwnPropertyDescriptor(_class2.prototype, "set_timer"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "Timer", [_dec7], Object.getOwnPropertyDescriptor(_class2.prototype, "Timer"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "status", [_dec8], Object.getOwnPropertyDescriptor(_class2.prototype, "status"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "transfer_tokens", [_dec9], Object.getOwnPropertyDescriptor(_class2.prototype, "transfer_tokens"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "withdraw", [_dec10], Object.getOwnPropertyDescriptor(_class2.prototype, "withdraw"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "transfer_tokens_callback", [_dec11], Object.getOwnPropertyDescriptor(_class2.prototype, "transfer_tokens_callback"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_nft_totalSupply", [_dec12], Object.getOwnPropertyDescriptor(_class2.prototype, "query_nft_totalSupply"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "nft_total_supply_callback", [_dec13], Object.getOwnPropertyDescriptor(_class2.prototype, "nft_total_supply_callback"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_nft_token", [_dec14], Object.getOwnPropertyDescriptor(_class2.prototype, "query_nft_token"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_query_nft_token_callback", [_dec15], Object.getOwnPropertyDescriptor(_class2.prototype, "query_query_nft_token_callback"), _class2.prototype)), _class2)) || _class);
+  actived() {
+    if (this.Timer().activated !== true) {
+      throw new Error(`Outside the airdrop deadline.`);
+    }
+  }
+}, (_applyDecoratedDescriptor(_class2.prototype, "init", [_dec2], Object.getOwnPropertyDescriptor(_class2.prototype, "init"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "update_owners", [_dec3], Object.getOwnPropertyDescriptor(_class2.prototype, "update_owners"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "startAirdrop", [_dec4], Object.getOwnPropertyDescriptor(_class2.prototype, "startAirdrop"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_balance_callback", [_dec5], Object.getOwnPropertyDescriptor(_class2.prototype, "query_balance_callback"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "get_balance", [_dec6], Object.getOwnPropertyDescriptor(_class2.prototype, "get_balance"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "Timer", [_dec7], Object.getOwnPropertyDescriptor(_class2.prototype, "Timer"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "status", [_dec8], Object.getOwnPropertyDescriptor(_class2.prototype, "status"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "transfer_tokens", [_dec9], Object.getOwnPropertyDescriptor(_class2.prototype, "transfer_tokens"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "withdraw", [_dec10], Object.getOwnPropertyDescriptor(_class2.prototype, "withdraw"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "transfer_tokens_callback", [_dec11], Object.getOwnPropertyDescriptor(_class2.prototype, "transfer_tokens_callback"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_nft_token", [_dec12], Object.getOwnPropertyDescriptor(_class2.prototype, "query_nft_token"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_query_nft_token_callback", [_dec13], Object.getOwnPropertyDescriptor(_class2.prototype, "query_query_nft_token_callback"), _class2.prototype)), _class2)) || _class);
 function query_query_nft_token_callback() {
-  const _state = airdropContract._getState();
-  if (!_state && airdropContract._requireInit()) {
+  const _state = AirdropContract._getState();
+  if (!_state && AirdropContract._requireInit()) {
     throw new Error("Contract must be initialized");
   }
-  const _contract = airdropContract._create();
+  const _contract = AirdropContract._create();
   if (_state) {
-    airdropContract._reconstruct(_contract, _state);
+    AirdropContract._reconstruct(_contract, _state);
   }
-  const _args = airdropContract._getArgs();
+  const _args = AirdropContract._getArgs();
   const _result = _contract.query_query_nft_token_callback(_args);
-  airdropContract._saveToStorage(_contract);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+  AirdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
 }
 function query_nft_token() {
-  const _state = airdropContract._getState();
-  if (!_state && airdropContract._requireInit()) {
+  const _state = AirdropContract._getState();
+  if (!_state && AirdropContract._requireInit()) {
     throw new Error("Contract must be initialized");
   }
-  const _contract = airdropContract._create();
+  const _contract = AirdropContract._create();
   if (_state) {
-    airdropContract._reconstruct(_contract, _state);
+    AirdropContract._reconstruct(_contract, _state);
   }
-  const _args = airdropContract._getArgs();
+  const _args = AirdropContract._getArgs();
   const _result = _contract.query_nft_token(_args);
-  airdropContract._saveToStorage(_contract);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
-}
-function nft_total_supply_callback() {
-  const _state = airdropContract._getState();
-  if (!_state && airdropContract._requireInit()) {
-    throw new Error("Contract must be initialized");
-  }
-  const _contract = airdropContract._create();
-  if (_state) {
-    airdropContract._reconstruct(_contract, _state);
-  }
-  const _args = airdropContract._getArgs();
-  const _result = _contract.nft_total_supply_callback(_args);
-  airdropContract._saveToStorage(_contract);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
-}
-function query_nft_totalSupply() {
-  const _state = airdropContract._getState();
-  if (!_state && airdropContract._requireInit()) {
-    throw new Error("Contract must be initialized");
-  }
-  const _contract = airdropContract._create();
-  if (_state) {
-    airdropContract._reconstruct(_contract, _state);
-  }
-  const _args = airdropContract._getArgs();
-  const _result = _contract.query_nft_totalSupply(_args);
-  airdropContract._saveToStorage(_contract);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+  AirdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
 }
 function transfer_tokens_callback() {
-  const _state = airdropContract._getState();
-  if (!_state && airdropContract._requireInit()) {
+  const _state = AirdropContract._getState();
+  if (!_state && AirdropContract._requireInit()) {
     throw new Error("Contract must be initialized");
   }
-  const _contract = airdropContract._create();
+  const _contract = AirdropContract._create();
   if (_state) {
-    airdropContract._reconstruct(_contract, _state);
+    AirdropContract._reconstruct(_contract, _state);
   }
-  const _args = airdropContract._getArgs();
+  const _args = AirdropContract._getArgs();
   const _result = _contract.transfer_tokens_callback(_args);
-  airdropContract._saveToStorage(_contract);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+  AirdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
 }
 function withdraw() {
-  const _state = airdropContract._getState();
-  if (!_state && airdropContract._requireInit()) {
+  const _state = AirdropContract._getState();
+  if (!_state && AirdropContract._requireInit()) {
     throw new Error("Contract must be initialized");
   }
-  const _contract = airdropContract._create();
+  const _contract = AirdropContract._create();
   if (_state) {
-    airdropContract._reconstruct(_contract, _state);
+    AirdropContract._reconstruct(_contract, _state);
   }
-  const _args = airdropContract._getArgs();
+  const _args = AirdropContract._getArgs();
   const _result = _contract.withdraw(_args);
-  airdropContract._saveToStorage(_contract);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+  AirdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
 }
 function transfer_tokens() {
-  const _state = airdropContract._getState();
-  if (!_state && airdropContract._requireInit()) {
+  const _state = AirdropContract._getState();
+  if (!_state && AirdropContract._requireInit()) {
     throw new Error("Contract must be initialized");
   }
-  const _contract = airdropContract._create();
+  const _contract = AirdropContract._create();
   if (_state) {
-    airdropContract._reconstruct(_contract, _state);
+    AirdropContract._reconstruct(_contract, _state);
   }
-  const _args = airdropContract._getArgs();
+  const _args = AirdropContract._getArgs();
   const _result = _contract.transfer_tokens(_args);
-  airdropContract._saveToStorage(_contract);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+  AirdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
 }
 function status() {
-  const _state = airdropContract._getState();
-  if (!_state && airdropContract._requireInit()) {
+  const _state = AirdropContract._getState();
+  if (!_state && AirdropContract._requireInit()) {
     throw new Error("Contract must be initialized");
   }
-  const _contract = airdropContract._create();
+  const _contract = AirdropContract._create();
   if (_state) {
-    airdropContract._reconstruct(_contract, _state);
+    AirdropContract._reconstruct(_contract, _state);
   }
-  const _args = airdropContract._getArgs();
+  const _args = AirdropContract._getArgs();
   const _result = _contract.status(_args);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
 }
 function Timer() {
-  const _state = airdropContract._getState();
-  if (!_state && airdropContract._requireInit()) {
+  const _state = AirdropContract._getState();
+  if (!_state && AirdropContract._requireInit()) {
     throw new Error("Contract must be initialized");
   }
-  const _contract = airdropContract._create();
+  const _contract = AirdropContract._create();
   if (_state) {
-    airdropContract._reconstruct(_contract, _state);
+    AirdropContract._reconstruct(_contract, _state);
   }
-  const _args = airdropContract._getArgs();
+  const _args = AirdropContract._getArgs();
   const _result = _contract.Timer(_args);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
-}
-function set_timer() {
-  const _state = airdropContract._getState();
-  if (!_state && airdropContract._requireInit()) {
-    throw new Error("Contract must be initialized");
-  }
-  const _contract = airdropContract._create();
-  if (_state) {
-    airdropContract._reconstruct(_contract, _state);
-  }
-  const _args = airdropContract._getArgs();
-  const _result = _contract.set_timer(_args);
-  airdropContract._saveToStorage(_contract);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
 }
 function get_balance() {
-  const _state = airdropContract._getState();
-  if (!_state && airdropContract._requireInit()) {
+  const _state = AirdropContract._getState();
+  if (!_state && AirdropContract._requireInit()) {
     throw new Error("Contract must be initialized");
   }
-  const _contract = airdropContract._create();
+  const _contract = AirdropContract._create();
   if (_state) {
-    airdropContract._reconstruct(_contract, _state);
+    AirdropContract._reconstruct(_contract, _state);
   }
-  const _args = airdropContract._getArgs();
+  const _args = AirdropContract._getArgs();
   const _result = _contract.get_balance(_args);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
 }
 function query_balance_callback() {
-  const _state = airdropContract._getState();
-  if (!_state && airdropContract._requireInit()) {
+  const _state = AirdropContract._getState();
+  if (!_state && AirdropContract._requireInit()) {
     throw new Error("Contract must be initialized");
   }
-  const _contract = airdropContract._create();
+  const _contract = AirdropContract._create();
   if (_state) {
-    airdropContract._reconstruct(_contract, _state);
+    AirdropContract._reconstruct(_contract, _state);
   }
-  const _args = airdropContract._getArgs();
+  const _args = AirdropContract._getArgs();
   const _result = _contract.query_balance_callback(_args);
-  airdropContract._saveToStorage(_contract);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+  AirdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
 }
 function startAirdrop() {
-  const _state = airdropContract._getState();
-  if (!_state && airdropContract._requireInit()) {
+  const _state = AirdropContract._getState();
+  if (!_state && AirdropContract._requireInit()) {
     throw new Error("Contract must be initialized");
   }
-  const _contract = airdropContract._create();
+  const _contract = AirdropContract._create();
   if (_state) {
-    airdropContract._reconstruct(_contract, _state);
+    AirdropContract._reconstruct(_contract, _state);
   }
-  const _args = airdropContract._getArgs();
+  const _args = AirdropContract._getArgs();
   const _result = _contract.startAirdrop(_args);
-  airdropContract._saveToStorage(_contract);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+  AirdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
+}
+function update_owners() {
+  const _state = AirdropContract._getState();
+  if (!_state && AirdropContract._requireInit()) {
+    throw new Error("Contract must be initialized");
+  }
+  const _contract = AirdropContract._create();
+  if (_state) {
+    AirdropContract._reconstruct(_contract, _state);
+  }
+  const _args = AirdropContract._getArgs();
+  const _result = _contract.update_owners(_args);
+  AirdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
 }
 function init() {
-  const _state = airdropContract._getState();
+  const _state = AirdropContract._getState();
   if (_state) {
     throw new Error("Contract already initialized");
   }
-  const _contract = airdropContract._create();
-  const _args = airdropContract._getArgs();
+  const _contract = AirdropContract._create();
+  const _args = AirdropContract._getArgs();
   const _result = _contract.init(_args);
-  airdropContract._saveToStorage(_contract);
-  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(airdropContract._serialize(_result, true));
+  AirdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
 }
 function promiseResult() {
   let result, success;
-  const data = 0;
   try {
-    result = promiseResult$1(data);
+    result = promiseResult$1("0");
     success = true;
   } catch {
     result = undefined;
@@ -1914,5 +1878,5 @@ function promiseResult() {
   };
 }
 
-export { Timer, get_balance, init, nft_total_supply_callback, query_balance_callback, query_nft_token, query_nft_totalSupply, query_query_nft_token_callback, set_timer, startAirdrop, status, transfer_tokens, transfer_tokens_callback, withdraw };
+export { Timer, get_balance, init, query_balance_callback, query_nft_token, query_query_nft_token_callback, startAirdrop, status, transfer_tokens, transfer_tokens_callback, update_owners, withdraw };
 //# sourceMappingURL=airdrops.js.map
