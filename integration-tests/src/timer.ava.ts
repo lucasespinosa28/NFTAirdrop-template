@@ -44,6 +44,10 @@ test.afterEach(async t => {
 
 test("Not started", async t => {
     const { airdrop, root, } = t.context.accounts;
+    console.log(`timer:${new Date().setDate(
+        new Date().getDate() - 30) * 1000000}`)
+        console.log(`timer:${new Date().setDate(
+            new Date().getDate() + 30) * 1000000}`)
     await startAirdrop(
         root,
         airdrop,

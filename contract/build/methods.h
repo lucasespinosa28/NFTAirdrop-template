@@ -1,4 +1,5 @@
 DEFINE_NEAR_METHOD(Timer)
+DEFINE_NEAR_METHOD(getBanneds)
 DEFINE_NEAR_METHOD(get_balance)
 DEFINE_NEAR_METHOD(init)
 DEFINE_NEAR_METHOD(query_balance_callback)

@@ -27,10 +27,10 @@ class AirdropContract {
     from: number = 0;
     reward: string = "";
     limit: bigint = BigInt(1);
-    rewarded: bigint = near.blockTimestamp();
-    startAt: bigint =  near.blockTimestamp();
-    endAt: bigint =  BigInt(0);
-    blockList: Vector<string> = new Vector<string>('banned-nfts');
+    rewarded: bigint = BigInt(0);
+    startAt: bigint = near.blockTimestamp();
+    endAt: bigint = near.blockTimestamp();
+    bannedList: Vector<string> = new Vector<string>('banned-nfts');
     claimed: UnorderedMap<boolean> = new UnorderedMap<boolean>('claimed-nfts');
     nftOwner: UnorderedMap<NFTOwnership> = new UnorderedMap<NFTOwnership>('NFT-owner');
 
@@ -42,15 +42,15 @@ class AirdropContract {
         this.owner.set(signer, true);
         this.tokenAddress = tokenAddress;
         this.nftAddress = nftAddress;
-        near.log(`{"signer":"${signer}","tokenAddress":"${tokenAddress}","nftAddress":"${nftAddress}"}`)
     }
     @call({})
-    update_owners({ids}:{ids:AccountId[]}){
-        ids.forEach(id => this.owner.set(id,true));     
+    update_owners({ ids }: { ids: AccountId[] }) {
+        ids.forEach(id => this.owner.set(id, true));
     }
     @call({})
-    startAirdrop({ startAt, endAt, amount, limit, blockList }: { startAt: bigint, endAt: bigint, amount: bigint, limit: bigint, blockList: string[] }): void {
+    startAirdrop({ startAt, endAt, amount, limit, bannedList }: { startAt: bigint, endAt: bigint, amount: bigint, limit: bigint, bannedList: string[] }): void {
         this.notAllowed();
+
         if (startAt >= endAt) {
             throw new Error(`End time need to be greater that start time`);
         }
@@ -58,8 +58,9 @@ class AirdropContract {
         this.endAt = endAt;
         this.limit = limit;
         this.reward = (amount / limit).toString();
-        blockList.forEach(id => this.blockList.push(id))
+        bannedList.forEach(id => this.bannedList.push(id))
     }
+   
     @call({ privateFunction: true })
     query_balance_callback(): string {
         const { result, success } = promiseResult();
@@ -77,7 +78,11 @@ class AirdropContract {
         return this.balance;
     }
     @view({})
-    Timer(): Timepiece {  
+    getBanneds(): string[] {
+        return this.bannedList.toArray()
+    }
+    @view({})
+    Timer(): Timepiece {
         let started = false;
         if (near.blockTimestamp() > this.startAt) {
             started = true;
@@ -85,7 +90,7 @@ class AirdropContract {
         if (near.blockTimestamp() >= this.endAt) {
             started = false;
         }
-        if(this.endAt === this.startAt){
+        if (this.endAt === this.startAt) {
             started = false;
         }
         return { activated: started, startAt: this.startAt, endAt: this.endAt }
@@ -113,7 +118,7 @@ class AirdropContract {
     @call({ payableFunction: true })
     withdraw({ receiverId, amount }: { receiverId: AccountId, amount: string }): void {
         this.notAllowed();
-        if(near.blockTimestamp() > this.endAt){
+        if (near.blockTimestamp() > this.endAt) {
             const promise = near.promiseBatchCreate(this.tokenAddress)
             near.promiseBatchActionFunctionCall(promise, "ft_transfer", JSON.stringify({
                 receiver_id: receiverId,
@@ -136,6 +141,11 @@ class AirdropContract {
     }
     @call({})
     query_nft_token({ tokenId }: { tokenId: AccountId }): void {
+        for (let index = 0; index < this.bannedList.length; index++) {
+            if (this.bannedList.get(index) === tokenId) {
+                throw new Error(`You are not authorized to perform this action.`);
+            }
+        }
         const promise = NearPromise.new(this.nftAddress)
             .functionCall("nft_token", JSON.stringify({ token_id: tokenId }), NO_DEPOSIT, FIVE_TGAS)
             .then(NearPromise.new(near.currentAccountId())

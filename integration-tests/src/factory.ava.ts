@@ -10,6 +10,8 @@ test.beforeEach(async (t) => {
 
   await factory.deploy("../factory/target/wasm32-unknown-unknown/release/contract.wasm");
 
+ 
+  
   t.context.worker = worker;
   t.context.accounts = {
     factory,
@@ -23,9 +25,8 @@ test.afterEach(async (t) => {
   });
 });
 
-test("create_factory_subaccount_and_deploy tests", async (t) => {
+test("factory contract deploy", async (t) => {
   const { factory, root } = t.context.accounts;
-
  await root.call(
     factory,
     "create_factory_subaccount_and_deploy",
@@ -35,7 +36,7 @@ test("create_factory_subaccount_and_deploy tests", async (t) => {
       tokenAddress: root.accountId,
       nftAddress: root.accountId,
     },
-    { gas: "300000000000000", attachedDeposit: "10328270000000000000000000" }
+    { gas: "300000000000000", attachedDeposit: "10400000000000000000000000" }
   );
   const timer = await root.getAccount("sub.factory.test.near").view("Timer") as {activated:boolean,endAt:bigint,startAt:bigint}
   t.is(timer.activated, false);
