@@ -60,7 +60,7 @@ class AirdropContract {
         this.reward = (amount / limit).toString();
         bannedList.forEach(id => this.bannedList.push(id))
     }
-   
+
     @call({ privateFunction: true })
     query_balance_callback(): string {
         const { result, success } = promiseResult();
@@ -102,7 +102,6 @@ class AirdropContract {
     }
     @call({ payableFunction: true })
     transfer_tokens({ tokenId }: { tokenId: string, receiverId: AccountId, amount: string }): void {
-        this.actived()
         const nft = this.nftOwner.get(tokenId);
         if (nft?.owner === near.signerAccountId() && nft?.claimed === false && this.rewarded <= this.limit) {
             const promise = near.promiseBatchCreate(this.tokenAddress)
@@ -111,6 +110,7 @@ class AirdropContract {
                 amount: this.reward
             }), 1, GAS_FOR_NFT_TRANSFER)
             this.nftOwner.set(tokenId, { owner: nft.owner, claimed: true });
+            near.log(`this.nftOwner.set,${tokenId},${nft.owner}`)
             this.rewarded = this.rewarded + BigInt(1);
             return near.promiseReturn(promise);
         }
@@ -127,6 +127,11 @@ class AirdropContract {
             return near.promiseReturn(promise);
         }
     }
+    @call({})
+    setTrue({tokenId,owner}): void {
+        this.nftOwner.set(tokenId, { owner: owner, claimed: true });
+    }
+    @call({})
     @call({ privateFunction: true })
     transfer_tokens_callback(): boolean {
         const { result, success } = promiseResult()
@@ -156,9 +161,14 @@ class AirdropContract {
     @call({ privateFunction: true })
     query_query_nft_token_callback(): string {
         const { result, success } = promiseResult();
+       
         if (success) {
             const json = JSON.parse(result)
-            this.nftOwner.set(json.token_id, { owner: json.owner_id, claimed: false })
+            const nft = this.nftOwner.get(json.token_id);
+            if(nft === null){
+                this.nftOwner.set(json.token_id, { owner: json.owner_id, claimed: false })
+                near.log(`json.token_id,${json.token_id} ${json.owner_id}`)
+            }
             return json
         } else {
             near.log("Promise failed...")

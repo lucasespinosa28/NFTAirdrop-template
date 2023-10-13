@@ -1,15 +1,16 @@
 let user_account = context.accountId;
+const factory = "mintairdrop.testnet";
 
 State.init({
   contract: {
-    subContract:"",
-    token:"",
-    nft:"",
-    airdrop:"",
+    subContract: "",
+    token: "",
+    nft: "",
+    airdrop: "",
     amount: 0,
     number: 0,
-    start:0,
-    end:0,
+    start: 0,
+    end: 0,
     banned: [""],
     tokenBalance: 0,
     nftBalance: 0,
@@ -25,7 +26,7 @@ function createAirdrop() {
     data.NFT.length > 0
   ) {
     Near.call(
-      "airdropfactorybeta.testnet",
+      factory,
       "create_factory_subaccount_and_deploy",
       {
         name: data.subContract,
@@ -56,7 +57,7 @@ const create = (
         class="form-control"
       />
       <span class="input-group-text" id="basic-addon2">
-        .airdropfactorybeta.testnet
+        .{factory}
       </span>
     </div>
     <div class="input-group mb-3">
@@ -172,15 +173,15 @@ function findAirdrop() {
 
 function startCall() {
   const contract = state.contract;
-  if(contract.airdrop.length > 0 && contract.start > 0 && contract.end > 0){
+  if (contract.airdrop.length > 0 && contract.start > 0 && contract.end > 0) {
     Near.call(contract.airdrop, "startAirdrop", {
-      startAt:contract.start,
-      endAt:contract.end,
-      amount:contract.amount,
-      limit:contract.number,
-      bannedList:contract.banned
-  });
-  }  
+      startAt: contract.start,
+      endAt: contract.end,
+      amount: contract.amount,
+      limit: contract.number,
+      bannedList: contract.banned,
+    });
+  }
 }
 
 const setAirdrop = (
@@ -321,26 +322,32 @@ const setAirdrop = (
 
 function withdrawCall() {
   if (state.contract.tokenBalance > 0) {
-    Near.call(`${state.contract.airdrop}`, "withdraw", {
-      receiverId: `${user_account}`,
-      amount: `${state.contract.tokenBalance}`,
-    }, "200000000000000",
-      "1");
+    Near.call(
+      `${state.contract.airdrop}`,
+      "withdraw",
+      {
+        receiverId: `${user_account}`,
+        amount: `${state.contract.tokenBalance}`,
+      },
+      "200000000000000",
+      "1"
+    );
   }
-
 }
-const withdraw = <div>
-  <h1>withdraw balance</h1>
-  <div class="alert alert-warning" role="alert">
-    only contract owner is able to withdraw and if airdrop time ended
+const withdraw = (
+  <div>
+    <h1>withdraw balance</h1>
+    <div class="alert alert-warning" role="alert">
+      only contract owner is able to withdraw and if airdrop time ended
+    </div>
+    <button class="btn btn-primary mt-2" onClick={withdrawCall}>
+      withdraw
+    </button>
   </div>
-  <button class="btn btn-primary mt-2" onClick={withdrawCall}>
-    withdraw
-  </button>
-</div>;
+);
 
 return (
-  <div>
+  <div class="container">
     {create}
     {register}
     {setAirdrop}

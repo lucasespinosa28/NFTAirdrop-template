@@ -1515,7 +1515,7 @@ class NearPromise {
   }
 }
 
-var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _class, _class2;
+var _dec, _dec2, _dec3, _dec4, _dec5, _dec6, _dec7, _dec8, _dec9, _dec10, _dec11, _dec12, _dec13, _dec14, _dec15, _dec16, _class, _class2;
 // assert(near.blockTimestamp === token.owner_id, "Predecessor must be the token owner");
 
 const FIVE_TGAS = BigInt("50000000000000");
@@ -1528,9 +1528,9 @@ let AirdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
   payableFunction: true
 }), _dec11 = call({
   payableFunction: true
-}), _dec12 = call({
+}), _dec12 = call({}), _dec13 = call({}), _dec14 = call({
   privateFunction: true
-}), _dec13 = call({}), _dec14 = call({
+}), _dec15 = call({}), _dec16 = call({
   privateFunction: true
 }), _dec(_class = (_class2 = class AirdropContract {
   owner = new UnorderedMap('owner-map');
@@ -1622,7 +1622,6 @@ let AirdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
   transfer_tokens({
     tokenId
   }) {
-    this.actived();
     const nft = this.nftOwner.get(tokenId);
     if (nft?.owner === signerAccountId() && nft?.claimed === false && this.rewarded <= this.limit) {
       const promise = promiseBatchCreate(this.tokenAddress);
@@ -1634,6 +1633,7 @@ let AirdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
         owner: nft.owner,
         claimed: true
       });
+      log(`this.nftOwner.set,${tokenId},${nft.owner}`);
       this.rewarded = this.rewarded + BigInt(1);
       return promiseReturn(promise);
     }
@@ -1651,6 +1651,15 @@ let AirdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
       }), 1, GAS_FOR_NFT_TRANSFER);
       return promiseReturn(promise);
     }
+  }
+  setTrue({
+    tokenId,
+    owner
+  }) {
+    this.nftOwner.set(tokenId, {
+      owner: owner,
+      claimed: true
+    });
   }
   transfer_tokens_callback() {
     const {
@@ -1686,10 +1695,14 @@ let AirdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
     } = promiseResult();
     if (success) {
       const json = JSON.parse(result);
-      this.nftOwner.set(json.token_id, {
-        owner: json.owner_id,
-        claimed: false
-      });
+      const nft = this.nftOwner.get(json.token_id);
+      if (nft === null) {
+        this.nftOwner.set(json.token_id, {
+          owner: json.owner_id,
+          claimed: false
+        });
+        log(`json.token_id,${json.token_id} ${json.owner_id}`);
+      }
       return json;
     } else {
       log("Promise failed...");
@@ -1706,7 +1719,7 @@ let AirdropContract = (_dec = NearBindgen({}), _dec2 = initialize(), _dec3 = cal
       throw new Error(`Outside the airdrop deadline.`);
     }
   }
-}, (_applyDecoratedDescriptor(_class2.prototype, "init", [_dec2], Object.getOwnPropertyDescriptor(_class2.prototype, "init"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "update_owners", [_dec3], Object.getOwnPropertyDescriptor(_class2.prototype, "update_owners"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "startAirdrop", [_dec4], Object.getOwnPropertyDescriptor(_class2.prototype, "startAirdrop"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_balance_callback", [_dec5], Object.getOwnPropertyDescriptor(_class2.prototype, "query_balance_callback"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "get_balance", [_dec6], Object.getOwnPropertyDescriptor(_class2.prototype, "get_balance"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "getBanneds", [_dec7], Object.getOwnPropertyDescriptor(_class2.prototype, "getBanneds"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "Timer", [_dec8], Object.getOwnPropertyDescriptor(_class2.prototype, "Timer"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "status", [_dec9], Object.getOwnPropertyDescriptor(_class2.prototype, "status"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "transfer_tokens", [_dec10], Object.getOwnPropertyDescriptor(_class2.prototype, "transfer_tokens"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "withdraw", [_dec11], Object.getOwnPropertyDescriptor(_class2.prototype, "withdraw"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "transfer_tokens_callback", [_dec12], Object.getOwnPropertyDescriptor(_class2.prototype, "transfer_tokens_callback"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_nft_token", [_dec13], Object.getOwnPropertyDescriptor(_class2.prototype, "query_nft_token"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_query_nft_token_callback", [_dec14], Object.getOwnPropertyDescriptor(_class2.prototype, "query_query_nft_token_callback"), _class2.prototype)), _class2)) || _class);
+}, (_applyDecoratedDescriptor(_class2.prototype, "init", [_dec2], Object.getOwnPropertyDescriptor(_class2.prototype, "init"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "update_owners", [_dec3], Object.getOwnPropertyDescriptor(_class2.prototype, "update_owners"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "startAirdrop", [_dec4], Object.getOwnPropertyDescriptor(_class2.prototype, "startAirdrop"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_balance_callback", [_dec5], Object.getOwnPropertyDescriptor(_class2.prototype, "query_balance_callback"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "get_balance", [_dec6], Object.getOwnPropertyDescriptor(_class2.prototype, "get_balance"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "getBanneds", [_dec7], Object.getOwnPropertyDescriptor(_class2.prototype, "getBanneds"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "Timer", [_dec8], Object.getOwnPropertyDescriptor(_class2.prototype, "Timer"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "status", [_dec9], Object.getOwnPropertyDescriptor(_class2.prototype, "status"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "transfer_tokens", [_dec10], Object.getOwnPropertyDescriptor(_class2.prototype, "transfer_tokens"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "withdraw", [_dec11], Object.getOwnPropertyDescriptor(_class2.prototype, "withdraw"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "setTrue", [_dec12], Object.getOwnPropertyDescriptor(_class2.prototype, "setTrue"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "transfer_tokens_callback", [_dec13, _dec14], Object.getOwnPropertyDescriptor(_class2.prototype, "transfer_tokens_callback"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_nft_token", [_dec15], Object.getOwnPropertyDescriptor(_class2.prototype, "query_nft_token"), _class2.prototype), _applyDecoratedDescriptor(_class2.prototype, "query_query_nft_token_callback", [_dec16], Object.getOwnPropertyDescriptor(_class2.prototype, "query_query_nft_token_callback"), _class2.prototype)), _class2)) || _class);
 function query_query_nft_token_callback() {
   const _state = AirdropContract._getState();
   if (!_state && AirdropContract._requireInit()) {
@@ -1746,6 +1759,20 @@ function transfer_tokens_callback() {
   }
   const _args = AirdropContract._getArgs();
   const _result = _contract.transfer_tokens_callback(_args);
+  AirdropContract._saveToStorage(_contract);
+  if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
+}
+function setTrue() {
+  const _state = AirdropContract._getState();
+  if (!_state && AirdropContract._requireInit()) {
+    throw new Error("Contract must be initialized");
+  }
+  const _contract = AirdropContract._create();
+  if (_state) {
+    AirdropContract._reconstruct(_contract, _state);
+  }
+  const _args = AirdropContract._getArgs();
+  const _result = _contract.setTrue(_args);
   AirdropContract._saveToStorage(_contract);
   if (_result !== undefined) if (_result && _result.constructor && _result.constructor.name === "NearPromise") _result.onReturn();else env.value_return(AirdropContract._serialize(_result, true));
 }
@@ -1897,5 +1924,5 @@ function promiseResult() {
   };
 }
 
-export { Timer, getBanneds, get_balance, init, query_balance_callback, query_nft_token, query_query_nft_token_callback, startAirdrop, status, transfer_tokens, transfer_tokens_callback, update_owners, withdraw };
+export { Timer, getBanneds, get_balance, init, query_balance_callback, query_nft_token, query_query_nft_token_callback, setTrue, startAirdrop, status, transfer_tokens, transfer_tokens_callback, update_owners, withdraw };
 //# sourceMappingURL=airdrops.js.map

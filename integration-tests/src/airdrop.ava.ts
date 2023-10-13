@@ -129,9 +129,22 @@ test("Airdrop", async t => {
     );
     await mintNFTs(root, nft, 1);
 
-    const result = await root.call(airdrop, "query_nft_token", { tokenId: "1" }, { gas: "200000000000000" }) as NFT;
+    let result = await root.call(airdrop, "query_nft_token", { tokenId: "1" }, { gas: "200000000000000" }) as NFT;
     let status = await airdrop.view("status", { tokenId: "1" }) as NFTOwnership;
-    const id = root.accountId
+    let id = root.accountId
+    t.is(result.owner_id, id)
+    t.is(result.token_id, "1")
+
+    await root.call(airdrop, "transfer_tokens", {
+        tokenId: "1",
+    }, { attachedDeposit: '1' });
+    status = await airdrop.view("status", { tokenId: "1" }) as NFTOwnership;
+    t.is(await token.view('ft_balance_of', { account_id: root.accountId }), "9100")
+    t.is(status.claimed, true)
+
+    result = await root.call(airdrop, "query_nft_token", { tokenId: "1" }, { gas: "200000000000000" }) as NFT;
+    status = await airdrop.view("status", { tokenId: "1" }) as NFTOwnership;
+    id = root.accountId
     t.is(result.owner_id, id)
     t.is(result.token_id, "1")
 
