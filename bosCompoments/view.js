@@ -23,11 +23,9 @@ const register =  Near.call(
 );
 
 const status =  Near.view("sub.airdropfactorybeta.testnet","status", { tokenId: "1" })
-//fruitknightstore.mintspace2.testnet
-const buyNow = Near.call(props.contract,"buy",{
+
+const buyNow = Near.call(,{
     "nft_contract_id": "fruitknightstore.mintspace2.testnet",
     "token_id": "6",
     "referrer_id": null
-  },
-  "8.90 Tgas",
-  "1000000000000000000000000")
+  }

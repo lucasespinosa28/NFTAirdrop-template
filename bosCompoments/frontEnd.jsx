@@ -1,6 +1,7 @@
 let user_account = context.accountId;
 State.init({
   page: 1,
+  end:""
 });
 
 const graphOwner = JSON.stringify({
@@ -48,21 +49,39 @@ function buyNow(tokenId) {
   );
 }
 
+function timerView() {
+  const timer =  Near.view(props.airdrop, "Timer");
+  timer.startAt = new Date(timer.startAt / 1000000)
+  timer.endAt = new Date(timer.endAt / 1000000)
+  const states = state;
+  states.end = `${timer.endAt}`
+  State.update(states);
+  return timer;
+}
+
+function approveCall(tokenId){
+  Near.call(props.airdrop, "query_nft_token", { tokenId: tokenId}, "200000000000000")
+}
+function receiveCall(tokenId){
+  Near.call(props.airdrop, "transfer_tokens", {
+    tokenId: tokenId},"200000000000000","1")
+}
 const ownedNft = () => {
   return resquet().body.data.mb_views_nft_owned_tokens.map((item, index) => {
     const status = statusNft(item.token_id);
+    console.log(status);
     return (
       <div class="w-50" key={item.token_id}>
         <div class="card m-1">
           <img class="card-img-top" src={item.media} alt={item.description} />
           <h5 class="m-2  text-center">{item.title.replace(/ /g, "\n")}</h5>
           {status == null && (
-            <button class="btn btn-primary mx-1" onClick={onBtnClick}>
+            <button class="btn btn-primary mx-1" onClick={() => {approveCall(item.token_id)}}>
               Approve
             </button>
           )}
           {status.claimed == false && (
-            <button class="btn btn-primary mx-1" onClick={onBtnClick}>
+            <button class="btn btn-primary mx-1" onClick={() => {receiveCall(item.token_id)}}>
               Receive
             </button>
           )}
@@ -124,12 +143,6 @@ const galleryNFT = () => {
 };
 const airdrop = (
   <div>
-    <h1>Airdrop</h1>
-    <h2>End time</h2>
-    <h2>Nao esta dispinivel</h2>
-    <h2>Começa em</h2>
-    <p>Description</p>
-    <p>you have 1 of 4 nft dispoveil for airdrop</p>
     <div class="row align-items-start ">{ownedNft()}</div>
   </div>
 );
@@ -146,7 +159,7 @@ const gallery = (
     </button>
   </div>
 );
-
+const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
 return (
   <div class="container text-center">
     <h1>Welcome to airdropt</h1>
@@ -165,6 +178,7 @@ return (
       </button>
     </div>
     <div class="container text-center">
+      {timerView().activated == true ? (<h1>Airdrop end at {state.end.split(":00 ")[0]}</h1>): <h1>Airdrop not started </h1>}
       {state.page == 1 ? airdrop : gallery}
       <a class="link-opacity-100" href="#">
         Create your own airdrops
