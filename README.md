@@ -1,5 +1,7 @@
 # NFTAirdrop
 
+### demo video https://youtu.be/gWGDq0wND3E
+
 ## aidrop page compoment
 demo page https://test.near.org/lucky91.testnet/widget/mintaidrop
 
