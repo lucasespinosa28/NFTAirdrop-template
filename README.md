@@ -1,5 +1,7 @@
 # NFTAirdrop
 
+to use this contract run the command ```./dev.sh``` to build and test or only  test ```./test.sh```, to deploy use ```near deploy```, https://docs.near.org/tools/near-cli-rs
+
 ### demo video https://youtu.be/gWGDq0wND3E
 
 ## aidrop page compoment
