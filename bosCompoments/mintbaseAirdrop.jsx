@@ -1,13 +1,12 @@
-const urlStorage = "lukcy91.testnet/widget/mintbase-airdrop"
 let user_account = context.accountId;
 const data = {
   factory: "mintairdrop.testnet",
-  contract: "fruitknightstore.mintspace2.testnet",
-  name: "Fruit knight",
-  airdrop: "fruitknight.mintairdrop.testnet",
-  reward: "get 100000 🍎fruit token per nft",
+  contract: "dogknight.mintspace2.testnet",
+  name: "Dog knight",
+  airdrop: "dogknight.mintairdrop.testnet",
+  reward: "get 100000 🐶Dog token per nft",
   description:
-    "Fruit Knights” is a game set in a Fruit Kingdom. In this kingdom, there is a bountiful Fruit Tree that bears fruits which grant extraordinary powers to whoever eats them.",
+    "Dog Knights” is a game set in a Dog Kingdom. In this kingdom, there is a bountiful Fruit Tree that bears fruits which grant extraordinary powers to whoever eats them.",
 };
 State.init({
   page: 1,
@@ -138,10 +137,11 @@ const galleryNFT = () => {
         ? `Near ${item.price}`.replace("e+24", ".00")
         : "Not for sale";
     const status = statusNft(item.token_id);
-    console.log(item.owner)
+    console.log(item.owner);
     {
       return (
-        (status == null && user_account != item.owner) && (
+        status == null &&
+        user_account != item.owner && (
           <div class="w-50" key={item.token_id}>
             <div class="card m-3">
               <img

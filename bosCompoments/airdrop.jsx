@@ -23,7 +23,7 @@ function createAirdrop() {
   if (
     data.subContract.length > 0 &&
     data.token.length > 0 &&
-    data.NFT.length > 0
+    data.nft.length > 0
   ) {
     Near.call(
       factory,
@@ -32,7 +32,7 @@ function createAirdrop() {
         name: data.subContract,
         controller: user_account,
         tokenAddress: data.token,
-        nftAddress: data.NFT,
+        nftAddress: data.nft,
       },
       "300000000000000",
       "10400000000000000000000000"
