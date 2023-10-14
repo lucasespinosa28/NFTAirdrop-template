@@ -1,12 +1,13 @@
 # NFTAirdrop
- 
-https://test.near.org/lucky91.testnet/widget/airdrop
-https://test.near.org/lucky91.testnet/widget/mintaidrop
 
 ## aidrop page compoment
+demo page https://test.near.org/lucky91.testnet/widget/mintaidrop
+
 to use de compoment just fork it
 https://test.near.org/discom.testnet/widget/ComponentDetailsPage?src=lucky91.testnet/widget/mintaidrop
 ## aidrop factory compoment
+demo page https://test.near.org/lucky91.testnet/widget/airdrop
+
 to use de compoment just fork it
 https://test.near.org/discom.testnet/widget/ComponentDetailsPage?src=lucky91.testnet/widget/airdrop
 ## Mintbase airdrop claimer
